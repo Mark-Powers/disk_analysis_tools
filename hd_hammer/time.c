@@ -13,77 +13,99 @@
 #include <unistd.h>
 #define BLKFLSBUF _IO(0x12, 97) /* flush buffer cache */
 
-#define DISK_BUF_BYTES (1028*2)
-#define FILE_SIZE 1073742000 // 1 GB
+#define DISK_BUF_BYTES (1028 * 16)
+#define FILE_SIZE 1073742000 / 32 // 1 GB
 #define DEPTH 1
-#define SECONDS 1
+#define SECONDS 30
+#define WARMUP_SECONDS 10
+#define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
+#define CLEAR_INTERRUPT_FLAG 0
 
 // char *file = "testfile";
-char *file = "/media/mark/Backup/dummy_data/testfile";
+char *filename = "/media/mark/Backup/dummy_data/testfile";
 unsigned char *buf;
-FILE *fd;
-
-void flush_buffer_cache(int fd) {
-  sync();
-  fsync(fd);     /* flush buffers */
-  fdatasync(fd); /* flush buffers */
-  sync();
-  if (ioctl(fd, BLKFLSBUF, NULL)) /* do it again, big time */
-    perror("BLKFLSBUF failed");
-  sync();
-}
+int fd;
+FILE *file;
 
 void open_fd() {
-  fd = fopen(file, "wb");
-  // fd = open(file, O_TRUNC | O_APPEND | O_DIRECT | O_SYNC);
-  if (fd == NULL) {
-    fprintf(stderr, "Error opening file\n");
+  fprintf(stderr, "Opening file\n");
+  fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) {
+    fprintf(stderr, "Error opening file: open\n");
     exit(1);
   }
+  file = fdopen(fd, "wb");
+  if (file == NULL) {
+    fprintf(stderr, "Error opening file: fdopen\n");
+    exit(1);
+  }
+  fprintf(stderr, "Allocating...\n");
+  // fallocate(fd, 0, 0, FILE_SIZE);
+  posix_fallocate(fd, 0, FILE_SIZE);
 }
 
 int main(int argc, char **argv, char **arge) {
-  srand(time(NULL));
-  struct timespec tps, tpe, tp_init;
-  // buf = prepare_timing_buf(DISK_BUF_BYTES);
+  srand(123);
+
+  open_fd();
+  // Get the index of the last valid random position in the file
+  fseek(file, 0, SEEK_END);
+  long int file_end = ftell(file) - DISK_BUF_BYTES;
+  fprintf(stderr, "Last index of file is %ld\n", file_end);
+  fseek(file, 0, SEEK_SET);
+
+  struct timespec tps, tpe, tp_init, tp_init_real;
+  clock_gettime(CLOCK_REALTIME, &tp_init_real);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tp_init);
+  // We use clock_monotonic_raw to ensure our data is consistent while gathering
+  // but when we write the log, we write the unix timestamp from when the
+  // program started
+  double real_ns_offset = (tp_init_real.tv_sec + 1e-9 * tp_init_real.tv_nsec) -
+                          (tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
+
   unsigned int i;
   int sum_index = 0;
   unsigned int sum = 0;
-  clock_gettime(CLOCK_REALTIME, &tp_init);
-  fprintf(stderr, "Starting main loop\n");
   int bytes[DISK_BUF_BYTES];
-  open_fd();
-  // asm("cli");
+  int elapased_seconds;
+  if (CLEAR_INTERRUPT_FLAG) {
+    asm("cli");
+  }
+  fprintf(stderr, "Starting main loop\n");
   while (1) {
-    // Start time
-    clock_gettime(CLOCK_REALTIME, &tps);
-    // Do write task
     for (int i = 0; i < DISK_BUF_BYTES; i++) {
       bytes[i] = rand();
     }
-    fwrite(bytes, DISK_BUF_BYTES, sizeof(int), fd);
+    long int pos = rand() % file_end;
+    fseek(file, pos, SEEK_SET);
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tps);
+    fwrite(bytes, DISK_BUF_BYTES, sizeof(int), file);
     sync();
-    // if ((r = write(fd, bytes, DISK_BUF_BYTES*sizeof(int))) != DISK_BUF_BYTES) {
-    // End time
-    clock_gettime(CLOCK_REALTIME, &tpe);
-    i = tpe.tv_nsec - tps.tv_nsec;
-    if (1 || i < 1000000000) { // Do not log outlier values
-      // Average DEPTH many readings
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
+    i = tpe.tv_nsec + tpe.tv_sec * 1e9 - tps.tv_nsec - tps.tv_sec * 1e9;
+
+    elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
+    fprintf(stderr, "Elapsed: %d       \r", elapased_seconds - WARMUP_SECONDS);
+    if (elapased_seconds > WARMUP_SECONDS) {
       sum_index++;
       sum += i;
       if (sum_index == DEPTH) {
         double average = (1e-6 * sum) / DEPTH;
-        printf("%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec), average);
+        printf("%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset,
+               average);
         sum_index = 0;
         sum = 0;
       }
     }
-    // Exit after SECONDS seconds
-    if (tpe.tv_sec - tp_init.tv_sec > 15) {
+    if (elapased_seconds > TOTAL_SECONDS) {
       break;
     }
   }
-  // asm("sti");
-  fclose(fd);
+  if (CLEAR_INTERRUPT_FLAG) {
+    asm("sti");
+  }
+  fclose(file);
+  close(fd);
   return 0;
 }
