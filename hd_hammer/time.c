@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#define BLKFLSBUF _IO(0x12, 97) /* flush buffer cache */
 
 #define DISK_BUF_BYTES (1028 * 16)
 #define FILE_SIZE 1073742000 / 32 // 1 GB
@@ -20,6 +19,7 @@
 #define WARMUP_SECONDS 10
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
 #define CLEAR_INTERRUPT_FLAG 0
+#define RANDOM_SEEK 1
 
 // char *file = "testfile";
 char *filename = "/media/mark/Backup/dummy_data/testfile";
@@ -76,8 +76,10 @@ int main(int argc, char **argv, char **arge) {
     for (int i = 0; i < DISK_BUF_BYTES; i++) {
       bytes[i] = rand();
     }
-    long int pos = rand() % file_end;
-    fseek(file, pos, SEEK_SET);
+    if (RANDOM_SEEK) {
+      long int pos = rand() % file_end;
+      fseek(file, pos, SEEK_SET);
+    }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &tps);
     fwrite(bytes, DISK_BUF_BYTES, sizeof(int), file);
