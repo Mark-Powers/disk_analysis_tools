@@ -18,18 +18,11 @@ from scipy.interpolate import CubicSpline
 from scipy.fft import fft, ifft
 
 groups_include = [
-        "none_lat",
-        "vib_5hz_lat",
-        "vib_10hz_lat",
-        "vib_20hz_lat",
-        "vib_30hz_lat",
+        "circuitous_none_",
+        "direct_none",
     ]
 def main():
-    dirs = ["/home/mark/dev/disk_analysis/basic/",
-            "/home/mark/dev/disk_analysis/pen_taps_64_queue/",
-            "/home/mark/dev/disk_analysis/pen_taps_4_queue/"]
-    #base_dir = dirs[1]
-    base_dir = "/media/mark/Backup/fio/fig/"
+    base_dir = "/home/mark/dev/disk_analysis/hd_hammer/logs/"
 
     groups = {}
     for g in groups_include:
@@ -43,7 +36,7 @@ def main():
 
     #plot_single(ds_none[0], "none 0")
     #plot_each(data_sets, False)
-    #plot_each(data_sets, True)
+    plot_each(data_sets, True)
     #run_pearson_correlation(data_sets)
     #run_fft(data_sets)
     #run_i_fft(data_sets)
@@ -60,13 +53,12 @@ def filter_dir(base_dir, phrase):
 
 def read_csv(file_list, ds_list):
     for f in file_list:
-        if "lat" in f:
-            data = numpy.genfromtxt(f, delimiter=',').transpose()
-            ds_list.append({ 
-                "t": data[0,:],
-                "ds": data[1,:],
-                "name": os.path.basename(f)
-                })
+        data = numpy.genfromtxt(f, delimiter=',').transpose()
+        ds_list.append({ 
+            "t": data[0,:],
+            "ds": data[1,:],
+            "name": os.path.basename(f)
+            })
 
 def plot_single(ds, label):
     plt.figure(label)
