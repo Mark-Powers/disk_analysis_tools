@@ -1,11 +1,11 @@
 all: time
 
 clean:
-	rm sdlview time fftview showmax
+	rm time
 
 CFLAGS= -Wall -O3 -march=native
 CFLAGSD= -Wall -O0 -g -march=native
 
-time : time.c
-	gcc $(CFLAGS) -o time time.c
+time : time_raw.c
+	gcc $(CFLAGSD) -o time time_raw.c
 

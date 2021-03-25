@@ -28,28 +28,25 @@
 #define WARMUP_SECONDS 10
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
 #define CLEAR_INTERRUPT_FLAG 0
-#define RANDOM_SEEK 0
+#define RANDOM_SEEK 1
 #define WRITE 1
 #define DIRECT 0
-#define CPU_CYCLE_TIME 1
+#define CPU_CYCLE_TIME 0
 #define STACK_ALLOCATED 1
-
-// TODO print out parameters at start to stderr?
 
 char *filename;
 char* filenames[] = {
 	"testfile",
-	"/media/markp/sdb/testfile",
-	"/media/markp/sdc/testfile",
-	"/media/markp/sdd/testfile",
-	"/media/markp/Backup/testfile"
+	"/dev/sdb",
+	"/dev/sdc",
+	"/dev/sdd"
 };
 
 int fd;
 FILE *file;
 int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));;
 //int *bytes;
-//
+
 unsigned int sum_index = 0;
 
 void fillBytes() {
@@ -62,9 +59,9 @@ void open_fd(int allocate) {
   fprintf(stderr, "Opening file\n");
   if (WRITE) {
     if(DIRECT){
-      fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
+      fd = open(filename, O_WRONLY | O_DIRECT | O_SYNC);
     } else {
-      fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_SYNC, 644);
+      fd = open(filename, O_WRONLY | O_SYNC);
     }
     if (fd < 0) {
       fprintf(stderr, "Error opening file: open (are you root?)\n");
@@ -178,7 +175,7 @@ int run(int allocate) {
     // Get the index of the last valid random position in the file
     fseek(file, 0, SEEK_END);
     file_end = ftell(file) - DISK_BUF_BYTES;
-    fprintf(stderr, "last position in file is %ld\n", file_end);
+    fprintf(stderr, "Last pos: %ld\n", file_end);
     fseek(file, 0, SEEK_SET);
   }
 
@@ -208,8 +205,7 @@ int run(int allocate) {
     fillBytes();
     if (RANDOM_SEEK) {
       long int pos = rand() % file_end;
-      //fseek(file, pos, SEEK_SET);
-      fseek(file, 0, SEEK_SET);
+      fseek(file, pos, SEEK_SET);
     }
 
     if(CPU_CYCLE_TIME){
@@ -222,7 +218,6 @@ int run(int allocate) {
       te = __rdtsc();
     }
     clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
-
     elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
     measure_time(sum, elapased_seconds, real_ns_offset, tpe, tps,
                  tp_init, te-ts);
@@ -267,6 +262,11 @@ int main(int argc, char **argv, char **arge) {
   } else {
     fprintf (stderr, "Using file '%s'\n", filename);
   }
+
+  fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nAVG %d\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nCPU_TIMING %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
+		  DISK_BUF_BYTES, FILE_SIZE, DEPTH, WARMUP_SECONDS, 
+		  SECONDS, RANDOM_SEEK, WRITE, DIRECT, CPU_CYCLE_TIME,
+		  filename, allocate, run_flag);
 
   if(allocate && run_flag) {
     run(1);
