@@ -13,14 +13,33 @@ import nfft
 import math
 
 import scipy
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, kstest
 from scipy.interpolate import CubicSpline
 from scipy.fft import fft, ifft
 
 groups_include = [
-        "circuitous_none_",
-        "direct_none",
+        "sdd-write-none",
+        "sdd-write-10hz-0.02G",
+        "sdd-write-20hz-0.07G",
+        "sdd-write-25hz-0.12G",
+        "sdd-write-30hz-0.10G",
+        "sdd-write-35hz-0.12G",
+        "sdd-write-40hz-0.17G",
+        "sdd-write-45hz-0.13G",
+        "sdd-write-50hz-0.16G",
     ]
+'''
+        "-write-none",
+        "-write-10hz-0.02G",
+        "-write-10hz-",
+        "-write-20hz-0.07G",
+        "-write-25hz-0.12G",
+        "-write-30hz-0.10G",
+        "-write-35hz-0.12G",
+        "-write-40hz-0.17G",
+        "-write-45hz-0.13G",
+        "-write-50hz-0.16G",
+'''
 def main():
     base_dir = "/home/mark/dev/disk_analysis/hd_hammer/logs/"
 
@@ -32,11 +51,17 @@ def main():
     for name, files in groups.items():
         data_sets[name] = []
         read_csv(files, data_sets[name])
-    normalize_size(data_sets)
+    #normalize_size(data_sets)
 
-    #plot_single(ds_none[0], "none 0")
+    #plot_single(data_sets["sdb-write-0-1k_"][0], "0")
+    #plot_single(data_sets["sdb-write-seq-1k_"][0], "seq")
+    #plot_single(data_sets["sdb-read-r_"][0], "rand")
+    #plot_single(data_sets["sdb-read_"][0], "rand")
+    #plot_single(data_sets["sdb-read-avg_"][0], "rand")
     #plot_each(data_sets, False)
-    plot_each(data_sets, True)
+    summary(data_sets)
+    run_kstest(data_sets)
+    #plot_each(data_sets, True)
     #run_pearson_correlation(data_sets)
     #run_fft(data_sets)
     #run_i_fft(data_sets)
@@ -54,15 +79,52 @@ def filter_dir(base_dir, phrase):
 def read_csv(file_list, ds_list):
     for f in file_list:
         data = numpy.genfromtxt(f, delimiter=',').transpose()
+        print(f)
         ds_list.append({ 
             "t": data[0,:],
             "ds": data[1,:],
             "name": os.path.basename(f)
             })
 
-def plot_single(ds, label):
+def summary(groups):
+    s = "name"
+    print(f"{s:20s}\t50%\t\t75%\t\t90%\t\t99%\t\t99.5%\t\tmean")
+    for name, ds_list in groups.items():
+        #print(name)
+        x50 = []
+        x75 = []
+        x90 = []
+        x99 = []
+        x995 = []
+        xMean = []
+        for ds in ds_list:
+            #print(f'\t{numpy.percentile(ds["ds"], 50):.2f}\t{numpy.percentile(ds["ds"], 75):.2f}\t{numpy.percentile(ds["ds"], 90):.2f}\t{numpy.percentile(ds["ds"], 99):.2f}\t{numpy.percentile(ds["ds"], 99.5):.2f}\t{numpy.mean(ds["ds"]):.2f}')
+            x50.append(numpy.percentile(ds["ds"], 50))
+            x75.append(numpy.percentile(ds["ds"], 75))
+            x90.append(numpy.percentile(ds["ds"], 90))
+            x99.append(numpy.percentile(ds["ds"], 99))
+            x995.append(numpy.percentile(ds["ds"], 99.5))
+            xMean.append(numpy.mean(ds["ds"]))
+        print(f"{name:20s}\t{mean(x50):.2f}\t{mean(x75):.2f}\t{mean(x90):.2f}\t{mean(x99):.2f}\t{mean(x995):.2f}\t{mean(xMean):.2f}")
+
+def mean(lst):
+    return sum(lst)/len(lst)
+
+def threshhold(groups, thres, prefix=""):
+    for name, ds_list in groups.items():
+        count = 0
+        for ds in ds_list:
+            for item in ds["ds"]:
+                if item > thres:
+                    count += 1
+        print(prefix, name, count)
+
+def plot_single(ds, label, line=True):
     plt.figure(label)
-    plt.plot(ds["t"], ds["ds"])
+    if line:
+        plt.plot(ds["t"], ds["ds"])
+    else:
+        plt.plot(ds["t"], ds["ds"], ".")
     plt.show()
 
 
@@ -75,8 +137,11 @@ def plot_each(groups, on_one=False):
         for i in range(len(ds_list)):
             name = ds_list[i]["name"].split("_")[-1][:-4]
             ax = axs if on_one else axs[i]
-            ax.set_ylabel(name)
-            ax.plot(ds_list[i]["t"], ds_list[i]["ds"])
+            if on_one:
+                ax.set_ylabel(name)
+            else:
+                ax.set_ylabel("CPU cycles")
+            ax.plot(ds_list[i]["t"], ds_list[i]["ds"], '.')
         plt.show()
 
 
@@ -97,12 +162,60 @@ def normalize_size(groups):
             ds["t"] = ds["t"][offset:m]
             ds["ds"] = ds["ds"][offset:m]
 
+def run_kstest(data_sets):
+    # Calculate pearson scores for (x_i, y_j)
+    pearson_scores = {}
+    name1, ds_list1 = list(data_sets.items())[0]
+    for i in range(len(data_sets)):
+        name2, ds_list2 = list(data_sets.items())[i]
+        for element in itertools.product(ds_list1, ds_list2):
+            name1 = element[0]["name"]
+            name2 = element[1]["name"]
+            if name1 == name2:
+                continue
+            p = kstest(element[0]["ds"], element[1]["ds"])
+            if name1 not in pearson_scores:
+                pearson_scores[name1] = {}
+            if p[1] > 0.01:
+                pearson_scores[name1][name2] = p[0]
+
+    # Print scores
+    print(pearson_scores)
+    for row_name, row in pearson_scores.items():
+        for col_name, val in row.items():
+            print(row_name, col_name, val)
+
+    # Plot scores on one dimension
+    fig = plt.figure("Pearson Coefficients Avg.")
+    size = len(groups_include)
+    gs = fig.add_gridspec(size, hspace=1)
+    axs = gs.subplots(sharex=True, sharey=True)
+    i = 0
+    for group_name in groups_include:
+        ax = axs[i]
+        #ax.set_xlim(0, 1)
+        ax.set_ylabel(group_name)
+        group_tests = {}
+        for row_name, row in pearson_scores.items():
+            for col_name, val in row.items():
+                if group_name not in col_name:
+                    continue
+                if col_name not in group_tests:
+                    group_tests[col_name] = []
+                group_tests[col_name].append(val)
+        print(group_tests)
+        for test, scores in group_tests.items():
+            ax.plot(scores, [0 for x in scores], '.')
+        i+=1
+    plt.show()
+
 def run_pearson_correlation(data_sets):
     # Calculate pearson scores for (x_i, y_j)
     pearson_scores = {}
     name1, ds_list1 = list(data_sets.items())[0]
     for i in range(len(data_sets)):
         name2, ds_list2 = list(data_sets.items())[i]
+        print(name1, name2)
         for element in itertools.product(ds_list1, ds_list2):
             name1 = element[0]["name"]
             name2 = element[1]["name"]
@@ -144,6 +257,7 @@ def run_pearson_correlation(data_sets):
         i+=1
     plt.show()
 
+'''
     # Plot averages
     fig = plt.figure("Pearson Coefficients Avg.")
     size = len(groups_include)
@@ -191,19 +305,6 @@ def run_pearson_correlation(data_sets):
             ax.plot(scores)
         i+=1
     plt.show()
-
-    '''
-    fig = plt.figure("Pearson Coefficients")
-    gs = fig.add_gridspec(2)#, hspace=0)
-    axs = gs.subplots(sharex=True, sharey=True)
-    axs[0].set_ylim(0, 1)
-    for f, scores in pearson_scores["none"].items():
-        axs[0].plot(scores)
-    axs[0].set_title("none")
-    for f, scores in pearson_scores["vib"].items():
-        axs[1].plot(scores)
-    axs[1].set_title("vibration")
-    plt.show()
     '''
 
 # https://stackoverflow.com/questions/57435660/how-to-compute-nfft
@@ -232,13 +333,13 @@ def run_periodogram(data_sets):
             p = spectrum.Periodogram(data, sampling=(len(data)/30))
             p.run()
             x, y = p.frequencies(), 10 * spectrum.tools.log10(p.psd)
-            axs[i][0].plot(x, y)
+            axs[i][0].plot(x[2:], y[2:])
         for i in range(len(ds_none)):
             data = ds_vibration[i]["ds"]
             p = spectrum.Periodogram(data, sampling=(len(data)/30))
             p.run()
             x, y = p.frequencies(), 10 * spectrum.tools.log10(p.psd)
-            axs[i][1].plot(x, y)
+            axs[i][1].plot(x[2:], y[2:])
         plt.show()
 
 def index_of_duplicate(ds):
@@ -248,7 +349,7 @@ def index_of_duplicate(ds):
     return len(ds["t"])
 
 def run_i_periodogram(data_sets):
-    sampling_rate = 25
+    sampling_rate = 30
     ds_none = list(data_sets.items())[0][1]
     ds_none_name = list(data_sets.items())[0][0]
     for i in range(1, len(data_sets)):
@@ -266,7 +367,7 @@ def run_i_periodogram(data_sets):
             p = spectrum.Periodogram(values, sampling=sampling_rate)
             p.run()
             x, y = p.frequencies(), 10 * spectrum.tools.log10(p.psd)
-            axs[i][0].plot(x, y)
+            axs[i][0].plot(x[2:], y[2:])
         for i in range(len(ds_none)):
             index = index_of_duplicate(ds_none[i])
             cs = CubicSpline(ds_vibration[i]["t"][:index], ds_vibration[i]["ds"][:index])
@@ -275,7 +376,7 @@ def run_i_periodogram(data_sets):
             p = spectrum.Periodogram(values, sampling=sampling_rate)
             p.run()
             x, y = p.frequencies(), 10 * spectrum.tools.log10(p.psd)
-            axs[i][1].plot(x, y)
+            axs[i][1].plot(x[2:], y[2:])
         plt.show()
 
 def run_nfft(data_sets):
@@ -317,7 +418,7 @@ def run_fft(data_sets):
         plt.show()
 
 def run_i_fft(data_sets):
-    sampling_rate = 25
+    sampling_rate = 30
     ds_none = list(data_sets.items())[0][1]
     ds_none_name = list(data_sets.items())[0][0]
     for i in range(1, len(data_sets)):
