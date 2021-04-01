@@ -1,4 +1,4 @@
-TEST_DIR=/media/mark/Backup/fio/fio_test
+TEST_DIR=/media/markp/sdb/fio_test/
 sudo fio --name=write_throughput \
 	--directory=$TEST_DIR \
 	--numjobs=1 \

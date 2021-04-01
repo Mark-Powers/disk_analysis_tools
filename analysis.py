@@ -41,7 +41,7 @@ groups_include = [
         "-write-50hz-0.16G",
 '''
 def main():
-    base_dir = "/home/mark/dev/disk_analysis/hd_hammer/logs/"
+    base_dir = "/home/markp/disk_analysis_tools/hd_hammer/logs/"
 
     groups = {}
     for g in groups_include:

@@ -2,8 +2,7 @@
 
 iterations=5
 file=0
-type_label=raw-1k-ms
-
+type_label=write-12Hz_0.31G_1v
 
 set -e
 

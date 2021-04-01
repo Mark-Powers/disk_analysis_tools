@@ -6,6 +6,6 @@ clean:
 CFLAGS= -Wall -O3 -march=native
 CFLAGSD= -Wall -O0 -g -march=native
 
-time : time_raw.c
-	gcc $(CFLAGSD) -o time time_raw.c
+time : time.c
+	gcc $(CFLAGSD) -o time time.c
 

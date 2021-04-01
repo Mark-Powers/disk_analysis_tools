@@ -16,11 +16,11 @@
 
 #pragma intrinsic(__rdtsc)
 
-#define GB 1024 * 1024 * 1024
+#define GB 1024 * 1024 * 1024l
 #define MB 1024 * 1024
 #define KB 1024
 
-#define DISK_BUF_BYTES 1 * KB
+#define DISK_BUF_BYTES 4 * KB
 #define FILE_SIZE 128l * GB
 #define MEMORY_SIZE 1 * GB
 #define DEPTH 1
@@ -28,11 +28,12 @@
 #define WARMUP_SECONDS 10
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
 #define CLEAR_INTERRUPT_FLAG 0
-#define RANDOM_SEEK 0
+#define RANDOM_SEEK 1
 #define WRITE 1
 #define DIRECT 0
 #define CPU_CYCLE_TIME 1
 #define STACK_ALLOCATED 1
+#define RAW 1
 
 // TODO print out parameters at start to stderr?
 
@@ -44,6 +45,18 @@ char* filenames[] = {
 	"/media/markp/sdd/testfile",
 	"/media/markp/Backup/testfile"
 };
+char* raw_filenames[] = {
+	"testfile",
+	"/dev/sdb",
+	"/dev/sdc",
+	"/dev/sdd"
+};
+long fs[] = {
+    100204886016l,
+    1000204886016l,
+    1000204886016l,
+    10000831348736l
+};
 
 int fd;
 FILE *file;
@@ -51,6 +64,7 @@ int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));;
 //int *bytes;
 //
 unsigned int sum_index = 0;
+unsigned long file_max;
 
 void fillBytes() {
   for (int i = 0; i < DISK_BUF_BYTES; i++) {
@@ -62,9 +76,17 @@ void open_fd(int allocate) {
   fprintf(stderr, "Opening file\n");
   if (WRITE) {
     if(DIRECT){
-      fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
+      if(RAW){
+	fd = open(filename, O_WRONLY | O_DIRECT | O_SYNC);
+      } else {
+        fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
+      }
     } else {
-      fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_SYNC, 644);
+      if(RAW){
+	fd = open(filename, O_WRONLY | O_SYNC);
+      } else {
+        fd = open(filename, O_WRONLY | O_TRUNC | O_SYNC, 644);
+      }
     }
     if (fd < 0) {
       fprintf(stderr, "Error opening file: open (are you root?)\n");
@@ -123,7 +145,7 @@ void measure_time(unsigned int sum,
       sum_index++;
       sum += i;
       if (sum_index == DEPTH) {
-        double average = sum/DEPTH;
+        double average = ((double)sum)/DEPTH;
         printf("%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, average);
         sum_index = 0;
         sum = 0;
@@ -176,10 +198,10 @@ int run(int allocate) {
   long int file_end = 0;
   if (RANDOM_SEEK) {
     // Get the index of the last valid random position in the file
-    fseek(file, 0, SEEK_END);
-    file_end = ftell(file) - DISK_BUF_BYTES;
+    //fseek(file, 0, SEEK_END);
+    file_end = file_max - DISK_BUF_BYTES;
     fprintf(stderr, "last position in file is %ld\n", file_end);
-    fseek(file, 0, SEEK_SET);
+    //fseek(file, 0, SEEK_SET);
   }
 
   // We use clock_monotonic_raw to ensure our data is consistent while gathering
@@ -208,8 +230,8 @@ int run(int allocate) {
     fillBytes();
     if (RANDOM_SEEK) {
       long int pos = rand() % file_end;
-      //fseek(file, pos, SEEK_SET);
-      fseek(file, 0, SEEK_SET);
+      fseek(file, pos, SEEK_SET);
+      //fseek(file, 0, SEEK_SET);
     }
 
     if(CPU_CYCLE_TIME){
@@ -253,7 +275,13 @@ int main(int argc, char **argv, char **arge) {
         run_flag = 1;
         break;
       case 'f':
-        filename = filenames[atoi(optarg)];
+	if(RAW){
+	    filename = raw_filenames[atoi(optarg)];
+	    file_max = fs[atoi(optarg)];
+	} else {
+	    filename = filenames[atoi(optarg)];
+	    file_max = FILE_SIZE;
+	}
 	break;
       case '?':
 	if (optopt == 'f'){
@@ -267,6 +295,11 @@ int main(int argc, char **argv, char **arge) {
   } else {
     fprintf (stderr, "Using file '%s'\n", filename);
   }
+
+  fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nAVG %d\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nCPU_TIMING %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
+		  DISK_BUF_BYTES, FILE_SIZE, DEPTH, WARMUP_SECONDS, 
+		  SECONDS, RANDOM_SEEK, WRITE, DIRECT, CPU_CYCLE_TIME,
+		  filename, allocate, run_flag);
 
   if(allocate && run_flag) {
     run(1);
