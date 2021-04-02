@@ -3,9 +3,8 @@ all: time
 clean:
 	rm time
 
-CFLAGS= -Wall -O3 -march=native
-CFLAGSD= -Wall -O0 -g -march=native
+CFLAGS= -Wall -O3 -march=native -pthread
 
 time : time.c
-	gcc $(CFLAGSD) -o time time.c
+	gcc $(CFLAGS) -o time time.c
 

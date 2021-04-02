@@ -13,8 +13,11 @@
 #include <time.h>
 #include <unistd.h>
 #include <x86intrin.h>
+#include <pthread.h>
+#include <sched.h>
 
-#pragma intrinsic(__rdtsc)
+
+//#pragma intrinsic(__rdtsc)
 
 #define GB 1024 * 1024 * 1024l
 #define MB 1024 * 1024
@@ -34,6 +37,7 @@
 #define CPU_CYCLE_TIME 1
 #define STACK_ALLOCATED 1
 #define RAW 1
+#define REALTIME 1
 
 // TODO print out parameters at start to stderr?
 
@@ -58,13 +62,19 @@ long fs[] = {
     10000831348736l
 };
 
-int fd;
-FILE *file;
+char *log_filename;
+
+int fd, log_fd;
+FILE *file, *log_fp;
 int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));;
 //int *bytes;
 //
 unsigned int sum_index = 0;
 unsigned long file_max;
+
+struct my_args {
+    int allocate;
+} ;
 
 void fillBytes() {
   for (int i = 0; i < DISK_BUF_BYTES; i++) {
@@ -134,7 +144,7 @@ void measure_time(unsigned int sum,
       sum_index++;
       sum += x;
       if (sum_index == DEPTH) {
-        printf("%f,%lld\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, x/DEPTH);
+        fprintf(log_fp, "%f,%lld\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, x/DEPTH);
         sum_index = 0;
         sum = 0;
       }
@@ -146,12 +156,13 @@ void measure_time(unsigned int sum,
       sum += i;
       if (sum_index == DEPTH) {
         double average = ((double)sum)/DEPTH;
-        printf("%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, average);
+        fprintf(log_fp, "%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, average);
         sum_index = 0;
         sum = 0;
       }
     }
   }
+  fsync(fileno(log_fp));
   fprintf(stderr, "Elapsed: %d       \r", elapased_seconds - WARMUP_SECONDS);
 }
 
@@ -184,10 +195,12 @@ int task() {
   }
 }
 
-int run(int allocate) {
+void *run(void *arguments) {
+  struct my_args *args = arguments;
+
   srand(123);
 
-  open_fd(allocate);
+  open_fd(args->allocate);
 
   /*
   if(!STACK_ALLOCATED){
@@ -225,13 +238,15 @@ int run(int allocate) {
     asm("cli");
   }
   fprintf(stderr, "Starting main loop\n");
+  //log_fd = open(log_filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
+  log_fp = fopen(log_filename, "w+");
   while (1) {
 
     fillBytes();
     if (RANDOM_SEEK) {
       long int pos = rand() % file_end;
-      fseek(file, pos, SEEK_SET);
-      //fseek(file, 0, SEEK_SET);
+      //fseek(file, pos, SEEK_SET);
+      fseek(file, 0, SEEK_SET);
     }
 
     if(CPU_CYCLE_TIME){
@@ -265,7 +280,8 @@ int main(int argc, char **argv, char **arge) {
   int run_flag = 0;
   char c;
   filename = NULL;
-  while ((c = getopt (argc, argv, "arf:")) != -1){
+  log_filename = NULL;
+  while ((c = getopt (argc, argv, "arf:l:")) != -1){
     switch (c)
       {
       case 'a':
@@ -283,6 +299,8 @@ int main(int argc, char **argv, char **arge) {
 	    file_max = FILE_SIZE;
 	}
 	break;
+      case 'l':
+	log_filename = optarg;
       case '?':
 	if (optopt == 'f'){
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
@@ -292,8 +310,11 @@ int main(int argc, char **argv, char **arge) {
   if(filename == NULL){
     fprintf (stderr, "No filename specified.\n");
     exit(1);
+  } else if(run_flag && log_filename == NULL){
+    fprintf (stderr, "No log filename specified.\n");
+    exit(1);
   } else {
-    fprintf (stderr, "Using file '%s'\n", filename);
+    fprintf (stderr, "Using file '%s' with log '%s'\n", filename, log_filename);
   }
 
   fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nAVG %d\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nCPU_TIMING %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
@@ -301,15 +322,74 @@ int main(int argc, char **argv, char **arge) {
 		  SECONDS, RANDOM_SEEK, WRITE, DIRECT, CPU_CYCLE_TIME,
 		  filename, allocate, run_flag);
 
+
+  struct sched_param param;
+  pthread_attr_t attr;
+  pthread_t thread;
+  int ret;
+  struct my_args args;
+
+  /* Lock memory */
+  if(mlockall(MCL_CURRENT|MCL_FUTURE) == -1) {
+  	fprintf(stderr, "mlockall failed: %m\n");
+  	exit(-2);
+  }
+
+  ret = pthread_attr_init(&attr);
+  if (ret) {
+  	fprintf(stderr, "init pthread attributes failed\n");
+  	goto out;
+  }
+  if(REALTIME){
+	ret = pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	if (ret) {
+		fprintf(stderr, "pthread setschedpolicy failed\n");
+		goto out;
+	}  
+	param.sched_priority = 99;
+	ret = pthread_attr_setschedparam(&attr, &param);
+	if (ret) {
+		fprintf(stderr, "pthread setschedparam failed\n");
+		goto out;
+	}
+	ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+	if (ret) {
+		fprintf(stderr, "pthread setinheritsched failed\n");
+		goto out;
+	}
+  }
+
+  
   if(allocate && run_flag) {
-    run(1);
+    args.allocate = 1;
+    ret = pthread_create(&thread, &attr, &run, (void*)&args);
+    if (ret) {
+    	fprintf(stderr, "create pthread failed\n");
+    	goto out;
+    }
+    /* Join the thread and wait until it is done */
+    ret = pthread_join(thread, NULL);
+    if (ret)
+  	fprintf(stderr, "join pthread failed: %m\n");
   } else if(run_flag) {
-    run(0);
+    args.allocate = 0;
+    ret = pthread_create(&thread, &attr, &run, (void*)&args);
+    if (ret) {
+    	fprintf(stderr, "create pthread failed\n");
+    	goto out;
+    }
+    /* Join the thread and wait until it is done */
+    ret = pthread_join(thread, NULL);
+    if (ret)
+  	fprintf(stderr, "join pthread failed: %m\n");
   } else if(allocate){
-    open_fd(1);
+      open_fd(1);
   } else {
     return 1;
   }
+
+out:
+  return 0;
   //fclose(file);
   //close(fd);
 }

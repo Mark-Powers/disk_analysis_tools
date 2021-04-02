@@ -2,7 +2,7 @@
 
 iterations=5
 file=0
-type_label=write-12Hz_0.31G_1v
+type_label=0-no-pipe
 
 set -e
 
@@ -36,8 +36,8 @@ do
 	for (( i=1; i<=$iterations; i++ ))
 	do
 		log_file=logs/$prefix\_$i.csv
-		sudo nice -n -20 ./time -r -f $file > $log_file
-		head -n -1 $log_file | sponge $log_file
+		sudo nice -n -20 ./time -r -f $file -l $log_file
+#		head -n -1 $log_file | sponge $log_file
 		echo "$log_file complete"
 
 		#espeak "finished $i"
