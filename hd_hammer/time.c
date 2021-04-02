@@ -245,8 +245,8 @@ void *run(void *arguments) {
     fillBytes();
     if (RANDOM_SEEK) {
       long int pos = rand() % file_end;
-      //fseek(file, pos, SEEK_SET);
-      fseek(file, 0, SEEK_SET);
+      fseek(file, pos, SEEK_SET);
+      //fseek(file, 0, SEEK_SET);
     }
 
     if(CPU_CYCLE_TIME){

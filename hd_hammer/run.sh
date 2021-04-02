@@ -2,7 +2,7 @@
 
 iterations=5
 file=0
-type_label=0-no-pipe
+type_label=none-random-rt
 
 set -e
 
