@@ -38,6 +38,7 @@
 #define STACK_ALLOCATED 1
 #define RAW 1
 #define REALTIME 1
+#define LOGS_PER_SECOND_ALLOCATE 500
 
 // TODO print out parameters at start to stderr?
 
@@ -62,11 +63,17 @@ long fs[] = {
     10000831348736l
 };
 
+
+
 char *log_filename;
+
+unsigned long long latency[LOGS_PER_SECOND_ALLOCATE*SECONDS];
+double times[LOGS_PER_SECOND_ALLOCATE*SECONDS];
+size_t log_index = 0;
 
 int fd, log_fd;
 FILE *file, *log_fp;
-int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));;
+int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));
 //int *bytes;
 //
 unsigned int sum_index = 0;
@@ -261,8 +268,15 @@ void *run(void *arguments) {
     clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
 
     elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
-    measure_time(sum, elapased_seconds, real_ns_offset, tpe, tps,
-                 tp_init, te-ts);
+
+    if(elapased_seconds > WARMUP_SECONDS){
+	    times[log_index] = (tpe.tv_sec + 1e-9*tpe.tv_nsec)+real_ns_offset;
+	    latency[log_index] = te-ts;
+	    log_index++;
+    }
+    fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
+
+    //measure_time(sum, elapased_seconds, real_ns_offset, tpe, tps, tp_init, te-ts);
     if (elapased_seconds > TOTAL_SECONDS) {
       break;
     }
@@ -270,6 +284,10 @@ void *run(void *arguments) {
   if (CLEAR_INTERRUPT_FLAG) {
     asm("sti");
   }
+  for(int i = 0; i < log_index; i++){
+    fprintf(log_fp, "%f,%lld\n", times[i], latency[i]);
+  }
+
   fclose(file);
   close(fd);
   return 0;
