@@ -3,7 +3,7 @@
 iterations=5
 file=0
 #type_label=none-seq-rt
-type_label=40Hz-4.5mmps
+type_label=50Hz-4.8mmps
 
 set -e
 

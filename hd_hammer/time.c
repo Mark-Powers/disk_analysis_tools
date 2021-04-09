@@ -142,43 +142,10 @@ void open_fd(int allocate) {
   }
 }
 
-void measure_time(unsigned int sum,
-                  unsigned int elapased_seconds, double real_ns_offset,
-                  struct timespec tpe, struct timespec tps,
-                  struct timespec tp_init, unsigned long long x) {
-  if(CPU_CYCLE_TIME){
-    if (elapased_seconds > WARMUP_SECONDS) {
-      sum_index++;
-      sum += x;
-      if (sum_index == DEPTH) {
-        fprintf(log_fp, "%f,%lld\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, x/DEPTH);
-        sum_index = 0;
-        sum = 0;
-      }
-    }
-  } else {
-    double i = 1e-6*(tpe.tv_nsec + tpe.tv_sec * 1e9 - tps.tv_nsec - tps.tv_sec * 1e9);
-    if (elapased_seconds > WARMUP_SECONDS) {
-      sum_index++;
-      sum += i;
-      if (sum_index == DEPTH) {
-        double average = ((double)sum)/DEPTH;
-        fprintf(log_fp, "%f,%f\n", (tpe.tv_sec + 1e-9 * tpe.tv_nsec) + real_ns_offset, average);
-        sum_index = 0;
-        sum = 0;
-      }
-    }
-  }
-  fsync(fileno(log_fp));
-  fprintf(stderr, "Elapsed: %d       \r", elapased_seconds - WARMUP_SECONDS);
-}
-
 int is_eof() {
   if (feof(file)) {
     return 1;
   } else {
-    //ferror(file);
-    fprintf(stderr, "??? %d - %d\n", errno, EINVAL);
     fprintf(stderr, "Error writing to file\n");
     exit(1);
   }
@@ -192,9 +159,6 @@ int task() {
     fsync(fd);
     fdatasync(fd);
     sync();
-    //if (ioctl(fd, DISK_BUF_BYTES, NULL)){
-    //	perror("BLKFLSBUF failed");
-    //}
     sync();
     return ret;
   } else {
@@ -209,19 +173,11 @@ void *run(void *arguments) {
 
   open_fd(args->allocate);
 
-  /*
-  if(!STACK_ALLOCATED){
-    posix_memalign((void**)&bytes, 4*KB, DISK_BUF_BYTES);
-  }
-  */
-
   long int file_end = 0;
   if (RANDOM_SEEK) {
     // Get the index of the last valid random position in the file
-    //fseek(file, 0, SEEK_END);
     file_end = file_max - DISK_BUF_BYTES;
     fprintf(stderr, "last position in file is %ld\n", file_end);
-    //fseek(file, 0, SEEK_SET);
   }
 
   // We use clock_monotonic_raw to ensure our data is consistent while gathering
@@ -233,19 +189,16 @@ void *run(void *arguments) {
   // Initialize for compiler sake
   clock_gettime(CLOCK_MONOTONIC_RAW, &tps);
   clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
-  
-  /*double real_ns_offset = (tp_init_real.tv_sec + 1e-9 * tp_init_real.tv_nsec) -
-                          (tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);*/
+
   double real_ns_offset = -(tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
 
-  unsigned long long ts, te, elapased_seconds = 0, sum = 0;
+  unsigned long long ts, te, elapased_seconds = 0;
 
   if (CLEAR_INTERRUPT_FLAG) {
     iopl(3);
     asm("cli");
   }
   fprintf(stderr, "Starting main loop\n");
-  //log_fd = open(log_filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
   log_fp = fopen(log_filename, "w+");
   while (1) {
 
@@ -270,13 +223,17 @@ void *run(void *arguments) {
     elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
 
     if(elapased_seconds > WARMUP_SECONDS){
+	    if(CPU_CYCLE_TIME){
+                    latency[log_index] = te-ts;
+	    } else {
+		    double i = 1e-6*(tpe.tv_nsec + tpe.tv_sec * 1e9 - tps.tv_nsec - tps.tv_sec * 1e9);
+		    latency[log_index] = i;
+	    }
 	    times[log_index] = (tpe.tv_sec + 1e-9*tpe.tv_nsec)+real_ns_offset;
-	    latency[log_index] = te-ts;
 	    log_index++;
     }
     fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
 
-    //measure_time(sum, elapased_seconds, real_ns_offset, tpe, tps, tp_init, te-ts);
     if (elapased_seconds > TOTAL_SECONDS) {
       break;
     }
@@ -408,6 +365,4 @@ int main(int argc, char **argv, char **arge) {
 
 out:
   return 0;
-  //fclose(file);
-  //close(fd);
 }
