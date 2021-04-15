@@ -16,31 +16,7 @@
 #include <pthread.h>
 #include <sched.h>
 
-
-//#pragma intrinsic(__rdtsc)
-
-#define GB 1024 * 1024 * 1024l
-#define MB 1024 * 1024
-#define KB 1024
-
-#define DISK_BUF_BYTES 4 * KB
-#define FILE_SIZE 128l * GB
-#define MEMORY_SIZE 1 * GB
-#define DEPTH 1
-#define SECONDS 30
-#define WARMUP_SECONDS 10
-#define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
-#define CLEAR_INTERRUPT_FLAG 0
-#define RANDOM_SEEK 1
-#define WRITE 1
-#define DIRECT 0
-#define CPU_CYCLE_TIME 1
-#define STACK_ALLOCATED 1
-#define RAW 1
-#define REALTIME 1
-#define LOGS_PER_SECOND_ALLOCATE 500
-
-// TODO print out parameters at start to stderr?
+#include "config.h"
 
 char *filename;
 char* filenames[] = {
@@ -52,23 +28,29 @@ char* filenames[] = {
 };
 char* raw_filenames[] = {
 	"testfile",
-	"/dev/sdb",
-	"/dev/sdc",
-	"/dev/sdd"
+	"/dev/sdb", // WD blue
+	"/dev/sdc", // WD red (SMR)
+	"/dev/sdd", // WD Gold 1 TB
+	"/dev/sde", // WD Gold 10 TB
+	"/dev/sdf"  // Seagate Barracuda
 };
 long fs[] = {
-    100204886016l,
-    1000204886016l,
-    1000204886016l,
-    10000831348736l
+    100204886016l, //~100 GB
+    1000204886016l, // 1 TB
+    300614658048l,   // 3 TB
+    1000204886016l, // 1 TB
+    10000831348736l, // 10 TB
+    300614658048l    // 3 TB
 };
 
 
 
 char *log_filename;
 
-unsigned long long latency[LOGS_PER_SECOND_ALLOCATE*SECONDS];
-double times[LOGS_PER_SECOND_ALLOCATE*SECONDS];
+unsigned long long timer_start[LOG_SIZE];
+unsigned long long timer_end[LOG_SIZE];
+long times_nsec[LOG_SIZE];
+time_t times_sec[LOG_SIZE];
 size_t log_index = 0;
 
 int fd, log_fd;
@@ -174,7 +156,7 @@ void *run(void *arguments) {
   open_fd(args->allocate);
 
   long int file_end = 0;
-  if (RANDOM_SEEK) {
+  if (SEEK_TYPE == RANDOM_SEEK ) {
     // Get the index of the last valid random position in the file
     file_end = file_max - DISK_BUF_BYTES;
     fprintf(stderr, "last position in file is %ld\n", file_end);
@@ -192,57 +174,58 @@ void *run(void *arguments) {
 
   double real_ns_offset = -(tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
 
-  unsigned long long ts, te, elapased_seconds = 0;
+  unsigned long long elapased_seconds = 0;
 
-  if (CLEAR_INTERRUPT_FLAG) {
-    iopl(3);
-    asm("cli");
-  }
   fprintf(stderr, "Starting main loop\n");
   log_fp = fopen(log_filename, "w+");
+  unsigned long long init_ts = __rdtsc();
   while (1) {
 
-    fillBytes();
-    if (RANDOM_SEEK) {
+    //fillBytes();
+    if (SEEK_TYPE == RANDOM_SEEK) {
       long int pos = rand() % file_end;
       fseek(file, pos, SEEK_SET);
-      //fseek(file, 0, SEEK_SET);
+    } else if(SEEK_TYPE == ZERO_SEEK){
+      fseek(file, 0, SEEK_SET);
     }
+    // else, sequential, and so leave file position as is
 
-    if(CPU_CYCLE_TIME){
-      ts = __rdtsc();
-    } else {
-      clock_gettime(CLOCK_MONOTONIC_RAW, &tps);
-    }
+    timer_start[log_index] = __rdtsc();
     task();
-    if(CPU_CYCLE_TIME){
-      te = __rdtsc();
-    }
-    clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
+    timer_end[log_index] = __rdtsc();
 
-    elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
-
-    if(elapased_seconds > WARMUP_SECONDS){
-	    if(CPU_CYCLE_TIME){
-                    latency[log_index] = te-ts;
-	    } else {
-		    double i = 1e-6*(tpe.tv_nsec + tpe.tv_sec * 1e9 - tps.tv_nsec - tps.tv_sec * 1e9);
-		    latency[log_index] = i;
+    if(LOG_TIME){
+	    clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
+	    elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
+	    if(elapased_seconds > WARMUP_SECONDS){
+		times_nsec[log_index] = tpe.tv_nsec;
+		times_sec[log_index] = tpe.tv_sec;
+		log_index++;
+		if (elapased_seconds > TOTAL_SECONDS) {
+		    break;
+		}
 	    }
-	    times[log_index] = (tpe.tv_sec + 1e-9*tpe.tv_nsec)+real_ns_offset;
+    } else {
+	if(log_index < LOG_SIZE){
 	    log_index++;
-    }
-    fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
-
-    if (elapased_seconds > TOTAL_SECONDS) {
-      break;
+	} else {
+	    break;
+	}
+	fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
     }
   }
-  if (CLEAR_INTERRUPT_FLAG) {
-    asm("sti");
-  }
+  init_ts = __rdtsc() - init_ts;
+  fprintf(stderr, "total: %lld\n", init_ts);
   for(int i = 0; i < log_index; i++){
-    fprintf(log_fp, "%f,%lld\n", times[i], latency[i]);
+    if(LOG_TIME){
+	fprintf(log_fp, "%f,%lld\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i]);
+    } else {
+	// Skip warmup entries
+	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){
+	    continue;
+	}
+	fprintf(log_fp, "%d,%lld\n", i, timer_end[i]-timer_start[i]);
+    }
   }
 
   fclose(file);
@@ -292,9 +275,9 @@ int main(int argc, char **argv, char **arge) {
     fprintf (stderr, "Using file '%s' with log '%s'\n", filename, log_filename);
   }
 
-  fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nAVG %d\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nCPU_TIMING %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
-		  DISK_BUF_BYTES, FILE_SIZE, DEPTH, WARMUP_SECONDS, 
-		  SECONDS, RANDOM_SEEK, WRITE, DIRECT, CPU_CYCLE_TIME,
+  fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
+		  DISK_BUF_BYTES, FILE_SIZE, WARMUP_SECONDS, 
+		  SECONDS, RANDOM_SEEK, WRITE, DIRECT,
 		  filename, allocate, run_flag);
 
 

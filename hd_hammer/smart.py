@@ -7,11 +7,13 @@ device = sys.argv[1]
 
 r = subprocess.run(["smartctl", "-j", "-x", device], capture_output=True)
 obj = json.loads(r.stdout)
-print("device", device, sep=",")
-print("metadata", obj["model_name"], obj["user_capacity"]["bytes"], 
+print("#device", device, sep=",")
+print("#metadata", obj["model_name"], obj["user_capacity"]["bytes"], 
         obj["rotation_rate"],
         obj["temperature"]["current"], sep=",")
+print("name,value,id")
 for attr in obj["ata_smart_attributes"]["table"]:
-    print(attr["name"], attr["value"], sep=",")
+    print(attr["name"], attr["value"], attr["id"], sep=",")
 for event in obj["sata_phy_event_counters"]["table"]:
-    print(event["name"], event["value"], sep=",")
+    print(event["name"], event["value"], event["id"], sep=",")
+
