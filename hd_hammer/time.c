@@ -201,7 +201,7 @@ void *run(void *arguments) {
 		times_nsec[log_index] = tpe.tv_nsec;
 		times_sec[log_index] = tpe.tv_sec;
 		log_index++;
-		if (elapased_seconds > TOTAL_SECONDS) {
+		if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
 		    break;
 		}
 	    }

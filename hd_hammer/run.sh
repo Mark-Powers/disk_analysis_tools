@@ -2,7 +2,7 @@
 
 iterations=3
 file=0
-type_label=35Hz-5mmps
+type_label=47Hz-10mmps-read-rand
 
 set -e
 
