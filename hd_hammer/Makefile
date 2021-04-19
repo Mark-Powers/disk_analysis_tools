@@ -3,8 +3,8 @@ all: time
 clean:
 	rm time
 
-CFLAGS= -Wall -O3 -march=native -pthread
+CFLAGS= -Wall -O3 -march=native -pthread -lphidget22
 
 time : time.c config.h
-	gcc $(CFLAGS) -o time time.c
+	gcc -o time time.c $(CFLAGS) 
 

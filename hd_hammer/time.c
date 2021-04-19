@@ -15,6 +15,7 @@
 #include <x86intrin.h>
 #include <pthread.h>
 #include <sched.h>
+#include <phidget22.h>
 
 #include "config.h"
 
@@ -47,23 +48,30 @@ long fs[] = {
 
 char *log_filename;
 
+unsigned long int random_pos[LOG_SIZE];
 unsigned long long timer_start[LOG_SIZE];
 unsigned long long timer_end[LOG_SIZE];
 long times_nsec[LOG_SIZE];
 time_t times_sec[LOG_SIZE];
 size_t log_index = 0;
+double values[3]; // Used for accelerometer/gyroscope
+double accel_x[LOG_SIZE];
+double accel_y[LOG_SIZE];
+double accel_z[LOG_SIZE];
+double gyro_x[LOG_SIZE];
+double gyro_y[LOG_SIZE];
+double gyro_z[LOG_SIZE];
 
 int fd, log_fd;
 FILE *file, *log_fp;
 int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));
-//int *bytes;
-//
 unsigned int sum_index = 0;
 unsigned long file_max;
 
 struct my_args {
     int allocate;
 } ;
+
 
 void fillBytes() {
   for (int i = 0; i < DISK_BUF_BYTES; i++) {
@@ -149,6 +157,22 @@ int task() {
 }
 
 void *run(void *arguments) {
+  PhidgetReturnCode res;
+  PhidgetAccelerometerHandle accelerometer;
+  PhidgetAccelerometer_create(&accelerometer);
+  res = Phidget_openWaitForAttachment((PhidgetHandle)accelerometer, PHIDGET_TIMEOUT_DEFAULT);
+  if (res != EPHIDGET_OK){
+	fprintf(stderr, "could not open accelerometer");
+	exit(1);
+  }
+  PhidgetGyroscopeHandle gyroscope;
+  PhidgetGyroscope_create(&gyroscope);
+  res = Phidget_openWaitForAttachment((PhidgetHandle)gyroscope, PHIDGET_TIMEOUT_DEFAULT);
+  if (res != EPHIDGET_OK){
+	fprintf(stderr, "could not open gyroscope");
+	exit(1);
+  }
+
   struct my_args *args = arguments;
 
   srand(123);
@@ -184,6 +208,7 @@ void *run(void *arguments) {
     //fillBytes();
     if (SEEK_TYPE == RANDOM_SEEK) {
       long int pos = rand() % file_end;
+      random_pos[log_index] = pos;
       fseek(file, pos, SEEK_SET);
     } else if(SEEK_TYPE == ZERO_SEEK){
       fseek(file, 0, SEEK_SET);
@@ -194,17 +219,26 @@ void *run(void *arguments) {
     task();
     timer_end[log_index] = __rdtsc();
 
+    PhidgetGyroscope_getAngularRate(gyroscope, &values);
+    gyro_x[log_index] = values[0];
+    gyro_y[log_index] = values[1];
+    gyro_z[log_index] = values[2];
+    PhidgetAccelerometer_getAcceleration(accelerometer, &values);
+    accel_x[log_index] = values[0];
+    accel_y[log_index] = values[1];
+    accel_z[log_index] = values[2];
+
     if(LOG_TIME){
-	    clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
-	    elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
-	    if(elapased_seconds > WARMUP_SECONDS){
-		times_nsec[log_index] = tpe.tv_nsec;
-		times_sec[log_index] = tpe.tv_sec;
-		log_index++;
-		if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
-		    break;
-		}
+	clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
+        elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
+        if(elapased_seconds > WARMUP_SECONDS){
+	   times_nsec[log_index] = tpe.tv_nsec;
+	    times_sec[log_index] = tpe.tv_sec;
+	    log_index++;
+	    if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
+		break;
 	    }
+	}
     } else {
 	if(log_index < LOG_SIZE){
 	    log_index++;
@@ -218,7 +252,7 @@ void *run(void *arguments) {
   fprintf(stderr, "total: %lld\n", init_ts);
   for(int i = 0; i < log_index; i++){
     if(LOG_TIME){
-	fprintf(log_fp, "%f,%lld\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i]);
+	fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f,%f,%f,%f\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i], accel_x[i], accel_y[i], accel_z[i], gyro_x[i], gyro_y[i], gyro_z[i]);
     } else {
 	// Skip warmup entries
 	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){

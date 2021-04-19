@@ -19,7 +19,7 @@
 #define SEEK_TYPE RANDOM_SEEK
 
 // Write or read
-#define WRITE 0
+#define WRITE 1
 // Use direct IO
 #define DIRECT 0
 // Use raw disk (rather than file system)
@@ -37,3 +37,5 @@
 // Values computed based on other variables
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
 #define LOG_SIZE LOGS_PER_SECOND_ALLOCATE*TOTAL_SECONDS
+
+#define LOG_ACCEL 1
