@@ -22,7 +22,7 @@
 #define WRITE 1
 // Use direct IO
 #define DIRECT 0
-// Use raw disk (rather than file system)
+// Use raw disk or file system
 #define RAW 1
 // Use linux RT scheduling
 #define REALTIME 1

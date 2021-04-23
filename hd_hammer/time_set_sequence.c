@@ -48,19 +48,19 @@ long fs[] = {
 
 char *log_filename;
 
-unsigned long int random_pos[LOG_SIZE];
-unsigned long long timer_start[LOG_SIZE];
-unsigned long long timer_end[LOG_SIZE];
-long times_nsec[LOG_SIZE];
-time_t times_sec[LOG_SIZE];
+unsigned long int random_pos;
+unsigned long long timer_start;
+unsigned long long timer_end;
+long times_nsec;
+time_t times_sec;
 size_t log_index = 0;
 double values[3]; // Used for accelerometer/gyroscope
-double accel_x[LOG_SIZE];
-double accel_y[LOG_SIZE];
-double accel_z[LOG_SIZE];
-double gyro_x[LOG_SIZE];
-double gyro_y[LOG_SIZE];
-double gyro_z[LOG_SIZE];
+double accel_x;
+double accel_y;
+double accel_z;
+double gyro_x;
+double gyro_y;
+double gyro_z;
 
 int fd, log_fd;
 FILE *file, *log_fp;
@@ -77,6 +77,36 @@ void fillBytes() {
   for (int i = 0; i < DISK_BUF_BYTES; i++) {
     bytes[i] = rand();
   }
+}
+
+long int file_end;
+
+long int lastPos = 1000000;
+long int size = 1;
+int order = 0;
+long int nextPos(){
+    long int toRet;
+    if(order == 0){
+	order++;
+	return lastPos;
+    } else if(order == 1){
+	order++;
+	return lastPos+size;
+    } else{
+	order = 1;
+	toRet = lastPos;
+	size++;
+	if(lastPos + size > file_end){
+	    order = 0;
+	    size = 0;
+	    toRet = lastPos;
+	    lastPos++;
+	} 
+    }
+    if(lastPos >= file_end){
+	return -1;
+    }
+    return toRet;
 }
 
 void open_fd(int allocate) {
@@ -182,13 +212,6 @@ void *run(void *arguments) {
 
   open_fd(args->allocate);
 
-  long int file_end = 0;
-  if (SEEK_TYPE == RANDOM_SEEK ) {
-    // Get the index of the last valid random position in the file
-    file_end = file_max - DISK_BUF_BYTES;
-    fprintf(stderr, "last position in file is %ld\n", file_end);
-  }
-
   // We use clock_monotonic_raw to ensure our data is consistent while gathering
   // but when we write the log, we write the unix timestamp from when the
   // program started
@@ -207,62 +230,39 @@ void *run(void *arguments) {
   log_fp = fopen(log_filename, "w+");
   unsigned long long init_ts = __rdtsc();
   while (1) {
-
-    //fillBytes();
-    if (SEEK_TYPE == RANDOM_SEEK) {
-      long int pos = rand() % file_end;
-      random_pos[log_index] = pos;
-      fseek(file, pos, SEEK_SET);
-    } else if(SEEK_TYPE == ZERO_SEEK){
-      fseek(file, 0, SEEK_SET);
+    
+    fillBytes();
+    long int pos = nextPos();
+    if(pos < 0){
+	    break;
     }
+    random_pos = pos;
+    fseek(file, pos, SEEK_SET);
     // else, sequential, and so leave file position as is
 
-    timer_start[log_index] = __rdtsc();
+    timer_start = __rdtsc();
     task();
-    timer_end[log_index] = __rdtsc();
+    timer_end = __rdtsc();
 
     PhidgetGyroscope_getAngularRate(gyroscope, &values);
-    gyro_x[log_index] = values[0];
-    gyro_y[log_index] = values[1];
-    gyro_z[log_index] = values[2];
+    gyro_x = values[0];
+    gyro_y = values[1];
+    gyro_z = values[2];
     PhidgetAccelerometer_getAcceleration(accelerometer, &values);
-    accel_x[log_index] = values[0];
-    accel_y[log_index] = values[1];
-    accel_z[log_index] = values[2];
+    accel_x = values[0];
+    accel_y = values[1];
+    accel_z = values[2];
 
     if(LOG_TIME){
 	clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
         elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
         if(elapased_seconds > WARMUP_SECONDS){
-	   times_nsec[log_index] = tpe.tv_nsec;
-	    times_sec[log_index] = tpe.tv_sec;
+	   times_nsec = tpe.tv_nsec;
+	    times_sec = tpe.tv_sec;
 	    log_index++;
-	    if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
-		break;
-	    }
 	}
-    } else {
-	if(log_index < LOG_SIZE){
-	    log_index++;
-	} else {
-	    break;
-	}
-	fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
     }
-  }
-  init_ts = __rdtsc() - init_ts;
-  fprintf(stderr, "total: %lld\n", init_ts);
-  for(int i = 0; i < log_index; i++){
-    if(LOG_TIME){
-	fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f,%f,%f,%f\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i], accel_x[i], accel_y[i], accel_z[i], gyro_x[i], gyro_y[i], gyro_z[i]);
-    } else {
-	// Skip warmup entries
-	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){
-	    continue;
-	}
-	fprintf(log_fp, "%d,%lld\n", i, timer_end[i]-timer_start[i]);
-    }
+    fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f,%f,%f,%f\n", times_sec + 1e-9*times_nsec + real_ns_offset, timer_end-timer_start, random_pos, accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z);
   }
 
   fclose(file);
@@ -289,6 +289,7 @@ int main(int argc, char **argv, char **arge) {
 	if(RAW){
 	    filename = raw_filenames[atoi(optarg)];
 	    file_max = fs[atoi(optarg)];
+	    file_end = file_max - DISK_BUF_BYTES;
 	} else {
 	    filename = filenames[atoi(optarg)];
 	    file_max = FILE_SIZE;

@@ -2,21 +2,25 @@
 
 iterations=3
 file=0
-type_label=new-none2-rand-write
+
+# Label for log files for this type of test
+type_label=10Hz-6mmps-rand-write
 
 set -e
 
 make
 
-sudo hdparm -W 0 /dev/sdb
-sudo hdparm -W 0 /dev/sdc
-sudo hdparm -W 0 /dev/sdd
-sudo hdparm -W 0 /dev/sde
-sudo hdparm -W 0 /dev/sdf
+# Disable write cache, and flush stuff
+sudo hdparm -f -F -W 0 /dev/sdb
+sudo hdparm -f -F -W 0 /dev/sdc
+sudo hdparm -f -F -W 0 /dev/sdd
+sudo hdparm -f -F -W 0 /dev/sde
+sudo hdparm -f -F -W 0 /dev/sdf
 
 
 for (( file=1; file<=5; file++ ))
 do
+	# Get prefix and mountpoint for device.
 	case $file in
 		1)
 			prefix=wd_blue-$type_label
@@ -39,21 +43,24 @@ do
 			device=/dev/sdf
 			;;
 	esac
-	
+
+	# Get the smart attributes
 	smart_log=smart/$prefix\_smart.csv
 	echo "before" > $smart_log
 	sudo ./smart.py $device >> $smart_log
 
+	# Allocate (only needed for FS tests)
 	#sudo ./time -a -f $file
-	
+
+	# Run iterations
 	for (( i=1; i<=$iterations; i++ ))
 	do
 		log_file=logs/$prefix\_$i.csv
 		sudo nice -n -20 ./time -r -f $file -l $log_file
-#		head -n -1 $log_file | sponge $log_file
 		echo "$log_file complete"
 	done
 
+	# Get new smart attributes
 	echo "after" >> $smart_log
 	sudo ./smart.py $device >> $smart_log
 done
