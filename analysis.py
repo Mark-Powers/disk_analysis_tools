@@ -23,7 +23,7 @@ from functools import partial
 from data import *
 
 # Which group to use, from data.py
-groups_include = rand_write_blue
+groups_include = rand_write_barr
 
 def main():
     # Which directory to search for log files in
@@ -59,10 +59,12 @@ def main():
         run_nfft
         run_periodogram
         run_i_periodogram
+        run_pearson_correlation
     '''
     summary(data_sets)
-    align(data_sets, thres=20)
-    #run_pearson_correlation(data_sets)
+    align(data_sets, thres=20, plotPDF=True)
+    plot_each(data_sets, True)
+    #plot_accel(data_sets)
 
 def filter_dir(base_dir, phrase):
     '''

@@ -2,7 +2,6 @@ A collection of various tools to collect hard drive data in real time
 
 - `analysis.py`: A script to analyze log files from `hd\_hammer`
 - `data.py`: Lists of different data sets
-- `filebench_scripts/`: Some sample scripts from filebench
 - `fio_scripts/`: Some scripts that run fio
 - `hd_hammer/`: A custom tool that generates a workload on a hard drive and
   measures from it.
@@ -27,7 +26,7 @@ sudo apt-get install -y libphidget22 libphidget22-dev
 ```
 3. Clone this repository
 
-# hd\_hammer usage
+# hd_hammer usage
 1. Modify `config.h` parameters as desired
 2. Build by running `make` in the `hd\_hammer` directory
 - executable `time` runs timing tests.
@@ -37,3 +36,30 @@ sudo apt-get install -y libphidget22 libphidget22-dev
 - executable `time_set_sequence` runs timing tests using a set pattern to measure the latency of specific disk movements. The sequence follows the pattern: 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, ... which if running for long enough would test all jumps from all positions.
 3. Modify `run.sh`. Here, set `type_label` so that generated log files have useful names. You can also modify the number of iterations run
 4. Run `run.sh` to run many tests in sequence.
+
+# analysis.py usage
+1. Add a new list of prefixes to form groups with in `data.py`
+2. Modify the line `groups_with = ` to use your new group
+3. Modify the `main()` function to run any tests you want.
+
+# Interpreting log files
+Log files are named indicating which hard drive it is measured from, the type of
+vibration (none indicates none) giving both Hz and rough velocity (sometimes
+this number increased/decreased during the test). The first 10 seconds of the
+run are a warmup period, and so are not included in the log file. The columns of
+each csv file are `timestamp, latency, position, accel_x, accel_y, accel_z`
+where the latency is either in milliseconds or CPU cycles elapsed (set in
+`config.h`), the position is the random position where the read/write occured
+(if not using random, then this field will just be 0/undefined). The
+acceleration measures come from the accelerometer, where the z axis is vertical.
+
+
+# Smart data
+Smart data is gotten from the disk at the start of a series of iterations using
+`smart.py`. It is rerun at the end of the iterations. This data is put into one
+log file with the heads BEFORE and AFTER to indicate which series of data is
+from which run. Using `smart_diff.py`, you can check for any difference between
+these two runs. To run these in bulk, run `cd smart; ls | xargs -l1 ../smart_diff.py`. 
+"Vendor specific attributes" are ones that aren't known in
+detail.
+

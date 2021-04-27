@@ -7,35 +7,20 @@ as a baseline.
 '''
 
 rand_write_barr = [
-        "sg_barr-none1-rand-write_",
-        "sg_barr-none2-rand-write_",
-        "sg_barr-none3-rand-write_",
-        "sg_barr-10Hz-6mmps-rand-write_",
-        "sg_barr-37Hz-10mmps-rand-write_",
-        "sg_barr-47Hz-10mmps-rand-write_",
-        ]
-rand_write_blue = [
-        "wd_blue-none1-rand-write_",
-        "wd_blue-none2-rand-write_",
-        "wd_blue-none3-rand-write_",
-        "wd_blue-10Hz-6mmps-rand-write_",
-        "wd_blue-37Hz-10mmps-rand-write_",
-        "wd_blue-47Hz-10mmps-rand-write_",
-        ]
-rand_write_red = [
-        "wd_red-none1-rand-write_",
-        "wd_red-none2-rand-write_",
-        "wd_red-none3-rand-write_",
-        "wd_red-37Hz-10mmps-rand-write_",
-        "wd_red-47Hz-10mmps-rand-write_",
+        "sg_barr-rand-write-none_",
+        "sg_barr-rand-write-none2_",
+        "sg_barr-rand-write-none3_",
+        "sg_barr-rand-write-15Hz-7.6mmps_",
+        "sg_barr-rand-write-30Hz-7.6mmps_",
+        "sg_barr-rand-write-45Hz-7.6mmps_",
         ]
 rand_read_barr = [
-        "sg_barr-none1-rand-read_",
-        "sg_barr-none2-rand-read_",
-        "sg_barr-none3-rand-read_",
+        "sg_barr-rand-read-none1_",
+        "sg_barr-rand-read-none2_",
+        "sg_barr-rand-read-none3_",
+        "sg_barr-rand-read-45Hz-7.6mmps_",
         ]
 seq_write_barr = [
-        "sg_barr-none1-seq-write_",
-        "sg_barr-none2-seq-write_",
-        "sg_barr-none3-seq-write_",
+        "sg_barr-seq-write-none1_",
+        "sg_barr-seq-write-45Hz-7.6mmps_",
         ]
