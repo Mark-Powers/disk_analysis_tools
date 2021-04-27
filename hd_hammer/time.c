@@ -58,9 +58,12 @@ double values[3]; // Used for accelerometer/gyroscope
 double accel_x[LOG_SIZE];
 double accel_y[LOG_SIZE];
 double accel_z[LOG_SIZE];
+// Gyro is unused
+/*
 double gyro_x[LOG_SIZE];
 double gyro_y[LOG_SIZE];
 double gyro_z[LOG_SIZE];
+*/
 
 int fd, log_fd;
 FILE *file, *log_fp;
@@ -167,6 +170,7 @@ void *run(void *arguments) {
   }
   res = PhidgetAccelerometer_setDataInterval(accelerometer, 4); // Minimum is 4 ms (hardware minimum)
 
+  /*
   PhidgetGyroscopeHandle gyroscope;
   PhidgetGyroscope_create(&gyroscope);
   res = Phidget_openWaitForAttachment((PhidgetHandle)gyroscope, PHIDGET_TIMEOUT_DEFAULT);
@@ -175,6 +179,7 @@ void *run(void *arguments) {
 	exit(1);
   }
   res = PhidgetGyroscope_setDataInterval(gyroscope, 4);
+  */
 
   struct my_args *args = arguments;
 
@@ -222,10 +227,12 @@ void *run(void *arguments) {
     task();
     timer_end[log_index] = __rdtsc();
 
+    /*
     PhidgetGyroscope_getAngularRate(gyroscope, &values);
     gyro_x[log_index] = values[0];
     gyro_y[log_index] = values[1];
     gyro_z[log_index] = values[2];
+    */
     PhidgetAccelerometer_getAcceleration(accelerometer, &values);
     accel_x[log_index] = values[0];
     accel_y[log_index] = values[1];
@@ -255,7 +262,7 @@ void *run(void *arguments) {
   fprintf(stderr, "total: %lld\n", init_ts);
   for(int i = 0; i < log_index; i++){
     if(LOG_TIME){
-	fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f,%f,%f,%f\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i], accel_x[i], accel_y[i], accel_z[i], gyro_x[i], gyro_y[i], gyro_z[i]);
+	fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i], accel_x[i], accel_y[i], accel_z[i]);
     } else {
 	// Skip warmup entries
 	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){
