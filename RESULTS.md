@@ -54,3 +54,22 @@ difference values for rand-write:
 		 147 from 13326899.766666666 to 73714129.65
 ```
 
+Below we plot rand-write with and without vibration:
+![Random without vibration](img/sg_barr-rand-write-none_.png)
+![Random with 45Hz vibration](img/sg_barr-rand-write-45Hz-7.6mmps__aligning.png)
+
+and to compare with sequential, below are the plot for seq-write with and
+without vibration:
+
+![Sequential without vibration](img/sg_barr-seq-write-none1_.png)
+![Sequential with 45Hz vibration](img/sg_barr-seq-write-45Hz-7.6mmps__aligning.png)
+
+From this, it seems obvious that random seeking shows vibration better. We also
+consider reading from the 0 position on the disk, and below plot the before and
+after.
+
+![Zero without vibration](img/sg_barr-zero-write-none_.png)
+![Zero with 45Hz vibration](img/sg_barr-zero-write-45Hz-7.6mmps_.png)
+
+
+Raw file system justification

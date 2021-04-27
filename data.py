@@ -22,5 +22,13 @@ rand_read_barr = [
         ]
 seq_write_barr = [
         "sg_barr-seq-write-none1_",
-        "sg_barr-seq-write-45Hz-7.6mmps_",
+        "sg_barr-seq-write-45Hz-5.5mmps_",
+        ]
+seq_write_barr = [
+        "sg_barr-seq-write-none1_",
+        "sg_barr-seq-write-45Hz-5.5mmps_",
+        ]
+zero_write_barr = [
+        "sg_barr-zero-write-none_",
+        "sg_barr-zero-write-45Hz-7.6mmps_",
         ]

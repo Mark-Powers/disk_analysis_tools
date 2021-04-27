@@ -23,7 +23,7 @@ from functools import partial
 from data import *
 
 # Which group to use, from data.py
-groups_include = rand_write_barr
+groups_include = zero_write_barr
 
 def main():
     # Which directory to search for log files in
@@ -62,7 +62,7 @@ def main():
         run_pearson_correlation
     '''
     summary(data_sets)
-    align(data_sets, thres=20, plotPDF=True)
+    align(data_sets, thres=20, plotPDF=False)
     plot_each(data_sets, True)
     #plot_accel(data_sets)
 
@@ -302,7 +302,7 @@ def plot_each(groups, on_one=False, use_time=True):
         for i in range(len(ds_list)):
             name = ds_list[i]["name"].split("_")[-1][:-4]
             ax = axs if on_one else axs[i]
-            #ax.set_ylim(0, 2e8)
+            ax.set_ylim(0, 2e8)
             if on_one:
                 ax.set_ylabel(name)
             else:
