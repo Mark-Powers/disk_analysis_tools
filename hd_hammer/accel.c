@@ -11,16 +11,11 @@ PhidgetReturnCode res;
 double values[3]; // Used for accelerometer/gyroscope
 struct timespec ts;
 
-static void handler(int signo)
+void handler(void)
 {
-    switch (signo) 
-    {
-            case SIGTSTP:
-		clock_gettime(CLOCK_REALTIME, &ts);
-		PhidgetAccelerometer_getAcceleration(accelerometer, &values);
-		printf("%f,%f,%f,%f\n", ts.tv_sec + 1e-9*ts.tv_nsec, values[0], values[1], values[2]);
-                break;
-    }
+	clock_gettime(CLOCK_REALTIME, &ts);
+	PhidgetAccelerometer_getAcceleration(accelerometer, &values);
+	printf("%f,%f,%f,%f\n", ts.tv_sec + 1e-9*ts.tv_nsec, values[0], values[1], values[2]);
 }
 
 
@@ -44,15 +39,15 @@ int main(){
 		exit(1);
 	}
 
-	struct sigaction action;
-	action.sa_handler = handler; 
-	sigaction(SIGTSTP, &action, NULL);
+	signal(SIGALRM, (void (*)(int)) handler);
 
 	struct itimerval tv;
 	tv.it_value.tv_sec = (tv.it_interval.tv_sec = 0);
 	tv.it_value.tv_usec = (tv.it_interval.tv_usec = 5*1000); // 5 millisecond
 	setitimer(ITIMER_REAL, &tv, NULL);
 
-
+	for(;;){
+	    pause();
+	}
 }
 
