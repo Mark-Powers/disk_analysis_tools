@@ -15,7 +15,6 @@
 #include <x86intrin.h>
 #include <pthread.h>
 #include <sched.h>
-#include <phidget22.h>
 
 #include "config.h"
 

@@ -17,7 +17,7 @@
 #define WARMUP_SECONDS 10
 
 // Choose seek type based on constants above
-#define SEEK_TYPE ZERO_SEEK
+#define SEEK_TYPE RANDOM_SEEK
 
 // Write or read
 #define WRITE 1

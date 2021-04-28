@@ -1,13 +1,39 @@
-all: time time_set_sequence
-
-clean:
-	rm time
-
 CFLAGS= -Wall -O3 -march=native -pthread -lphidget22
 
-time : time.c config.h
-	gcc -o time time.c $(CFLAGS) 
+all: bin/time_standard bin/time_alternating bin/accel
 
-time_set_sequence : time_set_sequence.c config.h
-	gcc -o time_set_sequence time_set_sequence.c $(CFLAGS) 
+
+bin/accel: accel.c
+	@printf "Building accel\n"
+	@mkdir -p bin
+	gcc -o bin/accel accel.c $(CFLAGS) 
+
+bin/time.o: time.c
+	@printf "Building time.o\n"
+	@mkdir -p bin
+	gcc -c time.c $(CFLAGS) 
+	@mv time.o bin/
+
+bin/random_sequence.o : sequence_algorithm.h random_sequence.c
+	@printf "Building random_sequence.o\n"
+	@mkdir -p bin
+	gcc -c random_sequence.c $(CFLAGS)
+	@mv random_sequence.o bin/
+
+bin/alternating_sequence.o : sequence_algorithm.h alternating_sequence.c
+	@printf "Building alternating_sequence.o\n"
+	@mkdir -p bin
+	gcc -c alternating_sequence.c $(CFLAGS)
+	@mv alternating_sequence.o bin/
+
+bin/time_standard : config.h bin/random_sequence.o bin/time.o
+	@printf "Building time_standard\n"
+	@mkdir -p bin
+	gcc -o bin/time_standard bin/time.o bin/random_sequence.o $(CFLAGS) 
+
+bin/time_alternating : config.h bin/alternating_sequence.o bin/time.o
+	@printf "Building time_alternating\n"
+	@mkdir -p bin
+	gcc -o bin/time_alternating bin/time.o bin/alternating_sequence.o $(CFLAGS) 
+
 

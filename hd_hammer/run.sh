@@ -3,7 +3,7 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=zero-write-45Hz-7.6mmps
+type_label=zero-write-none
 
 set -e
 
@@ -17,7 +17,7 @@ sudo hdparm -f -F -W 0 /dev/sde
 sudo hdparm -f -F -W 0 /dev/sdf
 
 file=0
-for (( file=1; file<=5; file++ ))
+for (( file=5; file<=5; file++ ))
 do
 	# Get prefix and mountpoint for device.
 	case $file in

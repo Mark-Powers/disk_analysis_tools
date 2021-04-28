@@ -15,9 +15,9 @@
 #include <x86intrin.h>
 #include <pthread.h>
 #include <sched.h>
-#include <phidget22.h>
 
 #include "config.h"
+#include "sequence_algorithm.h"
 
 char *filename;
 char* filenames[] = {
@@ -54,16 +54,6 @@ unsigned long long timer_end[LOG_SIZE];
 long times_nsec[LOG_SIZE];
 time_t times_sec[LOG_SIZE];
 size_t log_index = 0;
-double values[3]; // Used for accelerometer/gyroscope
-double accel_x[LOG_SIZE];
-double accel_y[LOG_SIZE];
-double accel_z[LOG_SIZE];
-// Gyro is unused
-/*
-double gyro_x[LOG_SIZE];
-double gyro_y[LOG_SIZE];
-double gyro_z[LOG_SIZE];
-*/
 
 int fd, log_fd;
 FILE *file, *log_fp;
@@ -160,27 +150,6 @@ int task() {
 }
 
 void *run(void *arguments) {
-  PhidgetReturnCode res;
-  PhidgetAccelerometerHandle accelerometer;
-  PhidgetAccelerometer_create(&accelerometer);
-  res = Phidget_openWaitForAttachment((PhidgetHandle)accelerometer, PHIDGET_TIMEOUT_DEFAULT);
-  if (res != EPHIDGET_OK){
-	fprintf(stderr, "could not open accelerometer");
-	exit(1);
-  }
-  res = PhidgetAccelerometer_setDataInterval(accelerometer, 4); // Minimum is 4 ms (hardware minimum)
-
-  /*
-  PhidgetGyroscopeHandle gyroscope;
-  PhidgetGyroscope_create(&gyroscope);
-  res = Phidget_openWaitForAttachment((PhidgetHandle)gyroscope, PHIDGET_TIMEOUT_DEFAULT);
-  if (res != EPHIDGET_OK){
-	fprintf(stderr, "could not open gyroscope");
-	exit(1);
-  }
-  res = PhidgetGyroscope_setDataInterval(gyroscope, 4);
-  */
-
   struct my_args *args = arguments;
 
   srand(123);
@@ -192,6 +161,7 @@ void *run(void *arguments) {
     // Get the index of the last valid random position in the file
     file_end = file_max - DISK_BUF_BYTES;
     fprintf(stderr, "last position in file is %ld\n", file_end);
+    init_sequence(file_end);
   }
 
   // We use clock_monotonic_raw to ensure our data is consistent while gathering
@@ -215,7 +185,7 @@ void *run(void *arguments) {
 
     //fillBytes();
     if (SEEK_TYPE == RANDOM_SEEK) {
-      long int pos = rand() % file_end;
+      long int pos = nextPos();
       random_pos[log_index] = pos;
       fseek(file, pos, SEEK_SET);
     } else if(SEEK_TYPE == ZERO_SEEK){
@@ -227,16 +197,6 @@ void *run(void *arguments) {
     task();
     timer_end[log_index] = __rdtsc();
 
-    /*
-    PhidgetGyroscope_getAngularRate(gyroscope, &values);
-    gyro_x[log_index] = values[0];
-    gyro_y[log_index] = values[1];
-    gyro_z[log_index] = values[2];
-    */
-    PhidgetAccelerometer_getAcceleration(accelerometer, &values);
-    accel_x[log_index] = values[0];
-    accel_y[log_index] = values[1];
-    accel_z[log_index] = values[2];
 
     if(LOG_TIME){
 	clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
@@ -262,7 +222,7 @@ void *run(void *arguments) {
   fprintf(stderr, "total: %lld\n", init_ts);
   for(int i = 0; i < log_index; i++){
     if(LOG_TIME){
-	fprintf(log_fp, "%f,%lld,%ld,%f,%f,%f\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i], accel_x[i], accel_y[i], accel_z[i]);
+	fprintf(log_fp, "%f,%lld,%ld\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i]);
     } else {
 	// Skip warmup entries
 	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){
@@ -361,7 +321,15 @@ int main(int argc, char **argv, char **arge) {
 	}
   }
 
-  
+ 
+  if(run_flag){
+        if(geteuid() != 0)
+        {
+                fprintf(stderr, "you must be root to spawn a RT pthread\n");
+                exit(1);
+        }
+  }
+
   if(allocate && run_flag) {
     args.allocate = 1;
     ret = pthread_create(&thread, &attr, &run, (void*)&args);
