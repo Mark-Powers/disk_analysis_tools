@@ -27,7 +27,7 @@ groups_include = seq_write_barr
 
 def main():
     # Which directory to search for log files in
-    base_dir = "hd_hammer/logs/"
+    base_dir = "../hd_hammer/logs/"
 
     # Construct groups of filenames based on names in groups_include
     groups = {}

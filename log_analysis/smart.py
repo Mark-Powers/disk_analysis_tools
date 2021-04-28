@@ -6,11 +6,12 @@ import os
 
 # If given no filename, print out difference for all smart data 
 if len(sys.argv) == 1:
-    for file_name in os.listdir("smart"):
+    base_dir = "../hd_hammer/smart/"
+    for file_name in os.listdir(base_dir):
         if file_name == ".gitignore":
             continue
         print(file_name, end="")
-        file_name = "smart/"+file_name
+        file_name = base_dir+file_name
 
         before = {}
         after = {}
