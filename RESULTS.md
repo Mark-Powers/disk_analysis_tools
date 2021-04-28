@@ -55,6 +55,7 @@ difference values for rand-write:
 ```
 
 Below we plot rand-write with and without vibration:
+
 ![Random without vibration](img/sg_barr-rand-write-none_.png)
 ![Random with 45Hz vibration](img/sg_barr-rand-write-45Hz-7.6mmps__aligning.png)
 
@@ -71,5 +72,14 @@ after.
 ![Zero without vibration](img/sg_barr-zero-write-none_.png)
 ![Zero with 45Hz vibration](img/sg_barr-zero-write-45Hz-7.6mmps_.png)
 
+Again, from this, the random seeking plots show vibration much clearer.
 
-Raw file system justification
+We analyze these showing 45 Hz, as at this frequency the plots clearly show
+effects of vibration for random-write. 
+
+TODO:
+- Raw file system justification
+- Sideways justification
+- Other disks?
+
+
