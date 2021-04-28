@@ -155,6 +155,18 @@ void *run(void *arguments) {
   srand(123);
 
   open_fd(args->allocate);
+  log_fp = fopen(log_filename, "w+");
+  fprintf(log_fp, "#BUF_SIZE: %d\n"
+		  "#FILE_SIZE %ld\n"
+		  "#WARMUP %d\n"
+		  "#SECONDS %d\n"
+		  "#SEEK_TYPE %d\n"
+		  "#WRITE %d\n"
+		  "#DIRECT %d\n"
+		  "#FILENAME %s\n",
+		  DISK_BUF_BYTES, FILE_SIZE, WARMUP_SECONDS, 
+		  SECONDS, SEEK_TYPE, WRITE, DIRECT,
+		  filename);
 
   long int file_end = 0;
   if (SEEK_TYPE == RANDOM_SEEK ) {
@@ -178,8 +190,8 @@ void *run(void *arguments) {
 
   unsigned long long elapased_seconds = 0;
 
+  fprintf(log_fp, "#REAL START TIME: %f\n", tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
   fprintf(stderr, "Starting main loop\n");
-  log_fp = fopen(log_filename, "w+");
   unsigned long long init_ts = __rdtsc();
   while (1) {
 
@@ -279,10 +291,6 @@ int main(int argc, char **argv, char **arge) {
     fprintf (stderr, "Using file '%s' with log '%s'\n", filename, log_filename);
   }
 
-  fprintf(stderr, "BUF_SIZE: %d\nFILE_SIZE %ld\nWARMUP %d\nSECONDS %d\nRANDOM %d\nWRITE %d\nDIRECT %d\nFILENAME %s\nALLOCATE %d\nRUN %d\n", 
-		  DISK_BUF_BYTES, FILE_SIZE, WARMUP_SECONDS, 
-		  SECONDS, RANDOM_SEEK, WRITE, DIRECT,
-		  filename, allocate, run_flag);
 
 
   struct sched_param param;
