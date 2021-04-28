@@ -15,5 +15,5 @@ y = data[1,:]
 plt.title(filename)
 plt.xlabel("time (s)")
 plt.ylabel("cpu cycles")
-plt.plot(x, y, '.')
+plt.plot(y, '.')
 plt.show()
