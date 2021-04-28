@@ -23,11 +23,11 @@ from functools import partial
 from data import *
 
 # Which group to use, from data.py
-groups_include = zero_write_barr
+groups_include = seq_write_barr
 
 def main():
     # Which directory to search for log files in
-    base_dir = "hd_hammer/logs/"
+    base_dir = "../hd_hammer/logs/"
 
     # Construct groups of filenames based on names in groups_include
     groups = {}
@@ -63,8 +63,8 @@ def main():
     '''
     summary(data_sets)
     align(data_sets, thres=20, plotPDF=False)
+    plot_accel(data_sets)
     plot_each(data_sets, True)
-    #plot_accel(data_sets)
 
 def filter_dir(base_dir, phrase):
     '''

@@ -46,7 +46,7 @@ do
 	# Get the smart attributes
 	smart_log=smart/$prefix\_smart.csv
 	echo "before" > $smart_log
-	sudo ./smart.py $device >> $smart_log
+	sudo ../log_analysis/smart.py $device >> $smart_log
 
 	# Allocate (only needed for FS tests)
 	#sudo ./time -a -f $file
@@ -55,7 +55,7 @@ do
 	for (( i=1; i<=$iterations; i++ ))
 	do
 		log_file=logs/$prefix\_$i.csv
-		sudo nice -n -20 ./time -r -f $file -l $log_file
+		sudo nice -n -20 ./bin/time_standard -r -f $file -l $log_file
 		echo "$log_file complete"
 	done
 
