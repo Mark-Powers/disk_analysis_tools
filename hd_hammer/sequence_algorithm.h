@@ -4,3 +4,6 @@ long int nextPos();
 
 // initialize sequence. file_end is the last valid index to return by nextPos
 void init_sequence(long int file_end);
+
+// The name of the sequence algorithm
+char* sequence_name();

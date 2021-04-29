@@ -3,8 +3,8 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=zero-write-none
-
+type_label=rand-write-none2-max-seek
+exe=./bin/time_max_seek
 set -e
 
 make
@@ -55,13 +55,13 @@ do
 	for (( i=1; i<=$iterations; i++ ))
 	do
 		log_file=logs/$prefix\_$i.csv
-		sudo nice -n -20 ./bin/time_standard -r -f $file -l $log_file
+		sudo nice -n -20 $exe -r -f $file -l $log_file
 		echo "$log_file complete"
 	done
 
 	# Get new smart attributes
 	echo "after" >> $smart_log
-	sudo ./smart.py $device >> $smart_log
+	sudo ../log_analysis/smart.py $device >> $smart_log
 done
 
 sudo hdparm -W 1 /dev/sdb

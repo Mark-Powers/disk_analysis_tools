@@ -33,3 +33,8 @@ long int nextPos(){
 void init_sequence(long int file_end){
 	file_end_index = file_end;
 }
+
+
+char* sequence_name(){
+	return "alternating_sequence";
+}

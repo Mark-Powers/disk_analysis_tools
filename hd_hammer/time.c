@@ -73,7 +73,6 @@ void fillBytes() {
 }
 
 void open_fd(int allocate) {
-  fprintf(stderr, "Opening file\n");
   if (WRITE) {
     if(DIRECT){
       if(RAW){
@@ -135,6 +134,7 @@ int is_eof() {
   return 0;
 }
 
+// The actual task of reading or writing to the disk
 int task() {
   if (WRITE) {
     int ret = fwrite(bytes, DISK_BUF_BYTES, sizeof(int), file) == 0 && is_eof();
@@ -163,16 +163,16 @@ void *run(void *arguments) {
 		  "#SEEK_TYPE %d\n"
 		  "#WRITE %d\n"
 		  "#DIRECT %d\n"
-		  "#FILENAME %s\n",
+		  "#FILENAME %s\n"
+		  "#SEQUENCE %s\n",
 		  DISK_BUF_BYTES, FILE_SIZE, WARMUP_SECONDS, 
 		  SECONDS, SEEK_TYPE, WRITE, DIRECT,
-		  filename);
+		  filename, sequence_name());
 
   long int file_end = 0;
   if (SEEK_TYPE == RANDOM_SEEK ) {
     // Get the index of the last valid random position in the file
     file_end = file_max - DISK_BUF_BYTES;
-    fprintf(stderr, "last position in file is %ld\n", file_end);
     init_sequence(file_end);
   }
 
@@ -191,8 +191,6 @@ void *run(void *arguments) {
   unsigned long long elapased_seconds = 0;
 
   fprintf(log_fp, "#REAL START TIME: %f\n", tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
-  fprintf(stderr, "Starting main loop\n");
-  unsigned long long init_ts = __rdtsc();
   while (1) {
 
     //fillBytes();
@@ -230,8 +228,6 @@ void *run(void *arguments) {
 	fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
     }
   }
-  init_ts = __rdtsc() - init_ts;
-  fprintf(stderr, "total: %lld\n", init_ts);
   for(int i = 0; i < log_index; i++){
     if(LOG_TIME){
 	fprintf(log_fp, "%f,%lld,%ld\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i]);
@@ -291,8 +287,6 @@ int main(int argc, char **argv, char **arge) {
     fprintf (stderr, "Using file '%s' with log '%s'\n", filename, log_filename);
   }
 
-
-
   struct sched_param param;
   pthread_attr_t attr;
   pthread_t thread;
@@ -338,19 +332,8 @@ int main(int argc, char **argv, char **arge) {
         }
   }
 
-  if(allocate && run_flag) {
-    args.allocate = 1;
-    ret = pthread_create(&thread, &attr, &run, (void*)&args);
-    if (ret) {
-    	fprintf(stderr, "create pthread failed\n");
-    	goto out;
-    }
-    /* Join the thread and wait until it is done */
-    ret = pthread_join(thread, NULL);
-    if (ret)
-  	fprintf(stderr, "join pthread failed: %m\n");
-  } else if(run_flag) {
-    args.allocate = 0;
+  if(run_flag) {
+    args.allocate = allocate;
     ret = pthread_create(&thread, &attr, &run, (void*)&args);
     if (ret) {
     	fprintf(stderr, "create pthread failed\n");
@@ -361,7 +344,7 @@ int main(int argc, char **argv, char **arge) {
     if (ret)
   	fprintf(stderr, "join pthread failed: %m\n");
   } else if(allocate){
-      open_fd(1);
+      open_fd(allocate);
   } else {
     return 1;
   }
