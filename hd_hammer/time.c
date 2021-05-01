@@ -12,28 +12,27 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <x86intrin.h>
 #include <pthread.h>
 #include <sched.h>
 
+#include "util.h"
+#include "run.h"
 #include "config.h"
-#include "sequence_algorithm.h"
 
-char *filename;
 char* filenames[] = {
-	"testfile",
-	"/media/markp/sdb/testfile",
-	"/media/markp/sdc/testfile",
-	"/media/markp/sdd/testfile",
-	"/media/markp/Backup/testfile"
+       "testfile",
+       "/media/markp/sdb/testfile",
+       "/media/markp/sdc/testfile",
+       "/media/markp/sdd/testfile",
+       "/media/markp/Backup/testfile"
 };
 char* raw_filenames[] = {
-	"testfile",
-	"/dev/sdb", // WD blue
-	"/dev/sdc", // WD red (SMR)
-	"/dev/sdd", // WD Gold 1 TB
-	"/dev/sde", // WD Gold 10 TB
-	"/dev/sdf"  // Seagate Barracuda
+       "testfile",
+       "/dev/sdb", // WD blue
+       "/dev/sdc", // WD red (SMR)
+       "/dev/sdd", // WD Gold 1 TB
+       "/dev/sde", // WD Gold 10 TB
+       "/dev/sdf"  // Seagate Barracuda
 };
 long fs[] = {
     100204886016l, //~100 GB
@@ -45,212 +44,14 @@ long fs[] = {
 };
 
 
-
-char *log_filename;
-
-unsigned long int random_pos[LOG_SIZE];
-unsigned long long timer_start[LOG_SIZE];
-unsigned long long timer_end[LOG_SIZE];
-long times_nsec[LOG_SIZE];
-time_t times_sec[LOG_SIZE];
-size_t log_index = 0;
-
-int fd, log_fd;
-FILE *file, *log_fp;
-int bytes[DISK_BUF_BYTES] __attribute__ ((__aligned__ (4*KB)));
-unsigned int sum_index = 0;
-unsigned long file_max;
-
-struct my_args {
-    int allocate;
-} ;
-
-
-void fillBytes() {
-  for (int i = 0; i < DISK_BUF_BYTES; i++) {
-    bytes[i] = rand();
-  }
-}
-
-void open_fd(int allocate) {
-  if (WRITE) {
-    if(DIRECT){
-      if(RAW){
-	fd = open(filename, O_WRONLY | O_DIRECT | O_SYNC);
-      } else {
-        fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_DIRECT | O_SYNC, 644);
-      }
-    } else {
-      if(RAW){
-	fd = open(filename, O_WRONLY | O_SYNC);
-      } else {
-        fd = open(filename, O_WRONLY | O_TRUNC | O_SYNC, 644);
-      }
-    }
-    if (fd < 0) {
-      fprintf(stderr, "Error opening file: open (are you root?)\n");
-      exit(1);
-    }
-    file = fdopen(fd, "wb");
-    if (file == NULL) {
-      fprintf(stderr, "Error opening file: fdopen\n");
-      exit(1);
-    }
-    if(allocate){
-      fprintf(stderr, "Allocating...\n");
-      posix_fallocate(fd, 0, FILE_SIZE);
-    }
-  } else {
-    if(allocate){
-      file = fopen(filename, "w");
-      fprintf(stderr, "Writing random data to file...\n");
-      for (long index = 0; index < MEMORY_SIZE; index += DISK_BUF_BYTES) {
-        fillBytes();
-        fwrite(bytes, sizeof(int), DISK_BUF_BYTES, file);
-      }
-      fclose(file);
-    }
-    file = fopen(filename, "r");
-    fd = fileno(file);
-    if (fd < 0) {
-      fprintf(stderr, "Error opening file: open\n");
-      exit(1);
-    }
-    file = fdopen(fd, "rb");
-    if (file == NULL) {
-      fprintf(stderr, "Error opening file: fdopen\n");
-      exit(1);
-    }
-  }
-}
-
-int is_eof() {
-  if (feof(file)) {
-    return 1;
-  } else {
-    fprintf(stderr, "Error writing to file\n");
-    exit(1);
-  }
-  return 0;
-}
-
-// The actual task of reading or writing to the disk
-int task() {
-  if (WRITE) {
-    int ret = fwrite(bytes, DISK_BUF_BYTES, sizeof(int), file) == 0 && is_eof();
-    sync();
-    fsync(fd);
-    fdatasync(fd);
-    sync();
-    sync();
-    return ret;
-  } else {
-    return fread(bytes, DISK_BUF_BYTES, sizeof(int), file) == 0 && is_eof();
-  }
-}
-
-void *run(void *arguments) {
-  struct my_args *args = arguments;
-
-  srand(123);
-
-  open_fd(args->allocate);
-  log_fp = fopen(log_filename, "w+");
-  fprintf(log_fp, "#BUF_SIZE: %d\n"
-		  "#FILE_SIZE %ld\n"
-		  "#WARMUP %d\n"
-		  "#SECONDS %d\n"
-		  "#SEEK_TYPE %d\n"
-		  "#WRITE %d\n"
-		  "#DIRECT %d\n"
-		  "#FILENAME %s\n"
-		  "#SEQUENCE %s\n",
-		  DISK_BUF_BYTES, FILE_SIZE, WARMUP_SECONDS, 
-		  SECONDS, SEEK_TYPE, WRITE, DIRECT,
-		  filename, sequence_name());
-
-  long int file_end = 0;
-  if (SEEK_TYPE == RANDOM_SEEK ) {
-    // Get the index of the last valid random position in the file
-    file_end = file_max - DISK_BUF_BYTES;
-    init_sequence(file_end);
-  }
-
-  // We use clock_monotonic_raw to ensure our data is consistent while gathering
-  // but when we write the log, we write the unix timestamp from when the
-  // program started
-  struct timespec tps, tpe, tp_init, tp_init_real;
-  clock_gettime(CLOCK_REALTIME, &tp_init_real);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &tp_init);
-  // Initialize for compiler sake
-  clock_gettime(CLOCK_MONOTONIC_RAW, &tps);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
-
-  double real_ns_offset = -(tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
-
-  unsigned long long elapased_seconds = 0;
-
-  fprintf(log_fp, "#REAL START TIME: %f\n", tp_init.tv_sec + 1e-9 * tp_init.tv_nsec);
-  while (1) {
-
-    //fillBytes();
-    if (SEEK_TYPE == RANDOM_SEEK) {
-      long int pos = nextPos();
-      random_pos[log_index] = pos;
-      fseek(file, pos, SEEK_SET);
-    } else if(SEEK_TYPE == ZERO_SEEK){
-      fseek(file, 0, SEEK_SET);
-    }
-    // else, sequential, and so leave file position as is
-
-    timer_start[log_index] = __rdtsc();
-    task();
-    timer_end[log_index] = __rdtsc();
-
-
-    if(LOG_TIME){
-	clock_gettime(CLOCK_MONOTONIC_RAW, &tpe);
-        elapased_seconds = tpe.tv_sec - tp_init.tv_sec;
-        if(elapased_seconds > WARMUP_SECONDS){
-	   times_nsec[log_index] = tpe.tv_nsec;
-	    times_sec[log_index] = tpe.tv_sec;
-	    log_index++;
-	    if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
-		break;
-	    }
-	}
-    } else {
-	if(log_index < LOG_SIZE){
-	    log_index++;
-	} else {
-	    break;
-	}
-	fprintf(stderr, "Elapsed: %lld       \r", elapased_seconds - WARMUP_SECONDS);
-    }
-  }
-  for(int i = 0; i < log_index; i++){
-    if(LOG_TIME){
-	fprintf(log_fp, "%f,%lld,%ld\n", times_sec[i] + 1e-9*times_nsec[i] + real_ns_offset, timer_end[i]-timer_start[i], random_pos[i]);
-    } else {
-	// Skip warmup entries
-	if(i < WARMUP_SECONDS*LOGS_PER_SECOND_ALLOCATE){
-	    continue;
-	}
-	fprintf(log_fp, "%d,%lld\n", i, timer_end[i]-timer_start[i]);
-    }
-  }
-
-  fclose(file);
-  close(fd);
-  return 0;
-}
-
 int main(int argc, char **argv, char **arge) {
+  struct my_args args;
+  args.filename = NULL;
+  args.log_filename = NULL;
+
   int allocate = 0;
   int run_flag = 0;
   char c;
-  filename = NULL;
-  log_filename = NULL;
   while ((c = getopt (argc, argv, "arf:l:")) != -1){
     switch (c)
       {
@@ -262,36 +63,35 @@ int main(int argc, char **argv, char **arge) {
         break;
       case 'f':
 	if(RAW){
-	    filename = raw_filenames[atoi(optarg)];
-	    file_max = fs[atoi(optarg)];
+	    args.filename = raw_filenames[atoi(optarg)];
+	    args.file_max = fs[atoi(optarg)];
 	} else {
-	    filename = filenames[atoi(optarg)];
-	    file_max = FILE_SIZE;
+	    args.filename = filenames[atoi(optarg)];
+	    args.file_max = FILE_SIZE;
 	}
 	break;
       case 'l':
-	log_filename = optarg;
+	args.log_filename = optarg;
       case '?':
 	if (optopt == 'f'){
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
 	}
       }
   }
-  if(filename == NULL){
+  if(args.filename == NULL){
     fprintf (stderr, "No filename specified.\n");
     exit(1);
-  } else if(run_flag && log_filename == NULL){
+  } else if(run_flag && args.log_filename == NULL){
     fprintf (stderr, "No log filename specified.\n");
     exit(1);
   } else {
-    fprintf (stderr, "Using file '%s' with log '%s'\n", filename, log_filename);
+    fprintf (stderr, "Using file '%s' with log '%s'\n", args.filename, args.log_filename);
   }
 
   struct sched_param param;
   pthread_attr_t attr;
   pthread_t thread;
   int ret;
-  struct my_args args;
 
   /* Lock memory */
   if(mlockall(MCL_CURRENT|MCL_FUTURE) == -1) {
@@ -344,7 +144,7 @@ int main(int argc, char **argv, char **arge) {
     if (ret)
   	fprintf(stderr, "join pthread failed: %m\n");
   } else if(allocate){
-      open_fd(allocate);
+      open_fd(allocate, args.filename);
   } else {
     return 1;
   }

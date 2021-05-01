@@ -3,8 +3,11 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=rand-write-none2-max-seek
-exe=./bin/time_max_seek
+type_label=rand-write-none-big_jump
+# Which executable to use
+#exe=./bin/time_standard
+exe=./bin/time_big_jump
+
 set -e
 
 make
@@ -16,8 +19,8 @@ sudo hdparm -f -F -W 0 /dev/sdd
 sudo hdparm -f -F -W 0 /dev/sde
 sudo hdparm -f -F -W 0 /dev/sdf
 
-file=0
-for (( file=5; file<=5; file++ ))
+file=1
+for (( file=1; file<=5; file++ ))
 do
 	# Get prefix and mountpoint for device.
 	case $file in
