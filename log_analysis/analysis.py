@@ -1,29 +1,22 @@
 #!/usr/bin/python3
 
-import csv
+import csv, itertools, os, math
 import numpy
-import itertools
-import os
 import matplotlib.pyplot as plt
 import spectrum
 import nfft
-import math
-
 import scipy
 from scipy.stats import pearsonr, kstest
 from scipy.interpolate import CubicSpline
 from scipy.fft import fft, ifft
 import scipy.fftpack
-
 import bayesian_changepoint_detection.offline_changepoint_detection as offcd
 import bayesian_changepoint_detection.online_changepoint_detection as oncd
-
 from functools import partial
-
 from data import *
 
 # Which group to use, from data.py
-groups_include = seq_write_barr
+groups_include = sg_barr_big_jump
 
 def main():
     # Which directory to search for log files in
@@ -53,7 +46,6 @@ def main():
         plot_changepoint
         plot_sparsity
         align
-        run_fft_accel
         run_fft
         run_i_fft
         run_nfft
@@ -62,9 +54,32 @@ def main():
         run_pearson_correlation
     '''
     summary(data_sets)
-    align(data_sets, thres=20, plotPDF=False)
-    plot_accel(data_sets)
-    plot_each(data_sets, True)
+    rolling_avg(data_sets)
+    #plot_each(data_sets, True)
+    #align(data_sets, thres=20, plotPDF=True)
+
+def rolling_avg(groups):
+    none_list = groups[groups_include[0]]
+    y = []
+    for ds in none_list:
+        for j in range(0, len(ds["ds"])):
+            y.append(ds["ds"][j])
+    mx = numpy.percentile(y, 99)
+    print(mx)
+    size = 100
+    for name, ds_list in groups.items():
+        for ds in ds_list:
+            j = 0
+            while j < len(ds["ds"])-size:
+                c = above_threshold(ds["ds"][j:j+size], mx)
+                # If more than 5/100 above 97%tile, then vibration
+                if c > 3:
+                    print(ds["name"], "vibration at", ds["t"][j], c)
+                    j += size
+                j += 1
+            plt.plot(ds["t"], ds["ds"])
+        plt.show()
+
 
 def filter_dir(base_dir, phrase):
     '''
@@ -88,12 +103,6 @@ def read_csv(file_list, ds_list):
             "t": data[0,:],
             "ds": data[1,:],
             "rand": data[2,:],
-            "accel_x": data[3,:],
-            "accel_y": data[4,:],
-            "accel_z": data[5,:],
-            #"gyro_x": data[6,:],
-            #"gyro_y": data[7,:],
-            #"gyro_z": data[8,:],
             "name": os.path.basename(f)
             })
 
@@ -129,13 +138,6 @@ def align(groups, plotPDF=False, thres=20):
             ds["ds"] = ds["ds"][i:]
             ds["t"] = ds["t"][i:]
             ds["rand"] = ds["rand"][i:]
-            if "accel_x" in ds:
-                ds["accel_x"] = ds["accel_x"][i:]
-                ds["accel_y"] = ds["accel_y"][i:]
-                ds["accel_z"] = ds["accel_z"][i:]
-                #ds["gyro_x"] = ds["gyro_x"][i:]
-                #ds["gyro_y"] = ds["gyro_y"][i:]
-                #ds["gyro_z"] = ds["gyro_z"][i:]
     # Find the min_length of all data series
     min_length = None
     for name, ds_list in groups.items():
@@ -275,18 +277,6 @@ def plot_changepoint(groups):
             plt.plot(R[Nw,Nw:-1])
         plt.show()
 
-def plot_accel(groups):
-    '''
-    Plot the 3 axis of acceleration, one at a time, for all data series
-    '''
-    for name, ds_list in groups.items():
-        for i in range(len(ds_list)):
-            plt.figure(ds_list[i]["name"] + " accel")
-            plt.plot(ds_list[i]["t"], ds_list[i]["accel_x"], label="x")
-            plt.plot(ds_list[i]["t"], ds_list[i]["accel_y"], label="y")
-            plt.plot(ds_list[i]["t"], ds_list[i]["accel_z"], label="z")
-            plt.legend()
-            plt.show()
 
 def plot_each(groups, on_one=False, use_time=True):
     '''
@@ -331,9 +321,6 @@ def normalize_size(groups):
         for ds in ds_list:
             ds["t"] = ds["t"][offset:m]
             ds["ds"] = ds["ds"][offset:m]
-            ds["accel_x"] = ds["accel_x"][offset:m]
-            ds["accel_y"] = ds["accel_y"][offset:m]
-            ds["accel_z"] = ds["accel_z"][offset:m]
 
 def run_kstest(data_sets):
     '''
@@ -414,29 +401,6 @@ def run_pearson_correlation(data_sets):
         i+=1
     plt.show()
 
-
-def run_fft_accel(data_sets):
-    '''
-    Run an fft on the acceleration data
-    '''
-    ds_none = list(data_sets.items())[0][1]
-    ds_none_name = list(data_sets.items())[0][0]
-    for i in range(1, len(data_sets)):
-        ds_vibration = list(data_sets.items())[i][1]
-        ds_vibration_name = list(data_sets.items())[i][0]
-        fig = plt.figure("FFT " + ds_none_name + " (left), " +ds_vibration_name + " (right)")
-        gs = fig.add_gridspec(len(ds_none), 2, hspace=1)
-        axs = gs.subplots()
-        for i in range(len(ds_none)):
-            for t in ["accel_x", "accel_y", "accel_z"]:
-                x = ds_vibration[i]["t"]
-                data = ds_vibration[i]["ds"]
-                N = len(x)
-                T = 1.0/30
-                yf = scipy.fftpack.fft(data)
-                xf = numpy.linspace(0.0, 1.0//(2.0*T), N//2)
-                axs[i][1].plot(xf, 2.0/N * numpy.abs(yf[:N//2]))
-        plt.show()
 
 def run_periodogram(data_sets):
     '''

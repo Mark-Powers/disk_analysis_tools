@@ -1,11 +1,9 @@
 A collection of various tools to collect hard drive data in real time
 
-- `analysis.py`: A script to analyze log files from `hd\_hammer`
-- `data.py`: Lists of different data sets
-- `fio_scripts/`: Some scripts that run fio
+- `log_analysis`: Scripts to analyze log files from `hd\_hammer`
 - `hd_hammer/`: A custom tool that generates a workload on a hard drive and
   measures from it.
-
+- `fio_scripts/`: Some scripts that run fio (replaced by `hd_hammer`)
 
 # Install Guide
 These steps were used to install this repository from a fresh installation of Xubuntu.
@@ -13,18 +11,37 @@ These steps were used to install this repository from a fresh installation of Xu
 1. Follow [this guide](https://www.myheap.com/cnc-stuff/linuxcnc-emc2/92-my-heap-articles/computer-numerical-control/linuxcnc/written-tutorials/198-compiling-a-realtime-kernel-for-linuxcnc.html) to install the linux RT patch.
 2. Install needed software:
   - Essential tools: `sudo apt install git curl smartmontools`
-  - `analysis.py` dependencies: 
+  - `log_analysis` dependencies: 
 ```
 sudo apt install python3-pip
 pip3 install matplotlib spectrum nfft bayesian-changepoint-detection
 pip3 install --user numpy scipy==1.2.1 matplotlib
 ```
-  - `hd\_hammer` dependencies: 
+  - `hd\_hammer` acceleration dependencies: 
 ```
 curl -fsSL https://www.phidgets.com/downloads/setup_linux | sudo -E bash -
 sudo apt-get install -y libphidget22 libphidget22-dev
 ```
 3. Clone this repository
+
+# Installing a new hard drive
+When installing a new hard drive, not much needs to be done to format it, since
+we are just using the raw disk for measurements anyway, and reading from the raw
+`/dev` file.
+
+This command will print out the serial numbers of disks, and which device they
+are on. It ignores the main SDD (`sda`).
+
+`ls -l /dev/disk/by-id/ata* | grep -E 'sd[b-z]'`
+
+Next, update `hd_hammer/run.sh` to disable write caching on this device.
+Assuming it is on `/dev/sdg`, the command would be:
+
+`sudo hdparm -f -F -W 0 /dev/sdg`
+
+Update the for loop max bound and the case statement to run this drive and give
+it a prefix. Add to the top of `hd_hammer/config.h` to include the device in the
+array of filenames, and the array of file sizes to use (i.e. the disk size).
 
 # hd_hammer usage
 1. Modify `config.h` parameters as desired
@@ -53,6 +70,8 @@ where the latency is either in milliseconds or CPU cycles elapsed (set in
 (if not using random, then this field will just be 0/undefined). The
 acceleration measures come from the accelerometer, where the z axis is vertical.
 
+Log files have lines starting with # to express runtime parameters. These are
+ignored when reading in the data, but still are present for later usage.
 
 # Smart data
 Smart data is gotten from the disk at the start of a series of iterations using
@@ -62,4 +81,5 @@ from which run. Using `smart_diff.py`, you can check for any difference between
 these two runs. To run these in bulk, run `cd smart; ls | xargs -l1 ../smart_diff.py`. 
 "Vendor specific attributes" are ones that aren't known in
 detail.
+
 

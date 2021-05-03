@@ -10,7 +10,7 @@ has them for all 45Hz vibration series. Note that the counts for rand-read will
 be higher in general, as the sampling rate is greater with reads. This indicates
 that while both are impacted by vibration, writing shows the effects more.
 ```
-difference values for rand-read:
+bins for rand-read:
 	 sg_barr-rand-read-none2_1.csv
 		 157 from -1505019.026666671 to -98449.5
 	 sg_barr-rand-read-none2_3.csv
@@ -26,7 +26,7 @@ difference values for rand-read:
 		 575 from 53803.166666671634 to 4275500.546666667
 	 sg_barr-rand-read-45Hz-7.6mmps_1.csv
 
-difference values for rand-write:
+bins for rand-write:
 	 sg_barr-rand-write-none2_2.csv
 		 224 from -4408987.600000009 to -139461.7500000149
 	 sg_barr-rand-write-none2_3.csv
@@ -77,9 +77,63 @@ Again, from this, the random seeking plots show vibration much clearer.
 We analyze these showing 45 Hz, as at this frequency the plots clearly show
 effects of vibration for random-write. 
 
+To justify using a real time operating system, we compare the data with no
+vibration collected on a standard Lubuntu installation vs. to Xubuntu with the
+preempt RT linux patch. Calculating the histogram as above using data collected
+from the standard Xubuntu installation, we get:
+```
+bins compared to preempt RT no vibration:
+	 sg_barr-rand-write-none-RT_2.csv
+	 sg_barr-rand-write-none-RT_3.csv
+	 sg_barr-rand-write-none-RT_1.csv
+		 272 from -3974728.9333333373 to -280677.96666666865
+	 sg_barr-rand-write-none_1.csv
+		 603 from -1445188.5066666752 to -18753.0
+	 sg_barr-rand-write-none_2.csv
+		 111 from -5158187.6400000155 to -879934.9166666865
+	 sg_barr-rand-write-none_3.csv
+		 31 from -2825777.056666672 to -1401763.153333336
+		 634 from 22250.75 to 1446264.653333336
+```
+and from this we see that there is a difference in the two data sets. For the RT
+linux series, we run the program using the FIFO scheduler with a priority of 99.
+See more documentation on this
+[here](https://wiki.linuxfoundation.org/realtime/documentation/technical_basics/sched_policy_prio/start).
+Since a RT operating system should reduce noise overall, or at least add
+operating system noise in a way that is deterministic, we use it anyway.
+
+We consider a sequence of positions that is made to maximize seeking. First, we
+crafted a program that iterates between various jump sizes (i.e. sends jobs to
+the disks at position 0, 1, 0, 2, 0, 3, 0, 4...). From this, we look for
+consistent behavior. We find a jump size that is large, that causes high
+latency. We also run this sequence again at a higher offset, to see if the size
+of jump is correlated with latency, which appears this is not the case. The same
+jump size only caused measurements within 10% of the original measurement 55% of
+the time. 
+
+One value that caused a large latency (above average) is taken and used as a
+jump step. For example, the jump N generates the sequence 0, N, 2N, 3N, ...
+which is then used instead of random seeking. When the data from this is plotted
+with and without vibration, the following plots result:
+
+![Jump without vibration](img/sg_barr_big_jump_none.png)
+![Jump with 45Hz vibration](img/sg_barr_big_jump_45Hz-6.0mmps.png)
+
+From this, we can see vibration more clearly than with always seeking to 0. This
+method also has the highest mean of any of the methods tried, giving 71584022
+with no vibration compared to 65775531 with random seeking. When using the
+alignment and histogram method, this method yields more false positives than
+random seeking. The statistical tests also show the mean when introducing
+vibration is less than with random seeking (from 71584022 to 72187862 compared 
+to from 65775531 to 93744709). These plots are similar to the sequential seeking
+method, but vibration is shown clearer.
+
+One advantage of this method is that it can be used easily in real time by
+keeping track of a rolling average.
+
+
 TODO:
 - Raw file system justification
 - Sideways justification
 - Other disks?
-
 
