@@ -2,8 +2,8 @@
 
 long int file_end_index;
 
-long int lastPos = 1000000;
-long int size = 1;
+long int lastPos = 100000000l;
+long int size = 100000;
 int order = 0;
 long int nextPos(){
     long int toRet;
@@ -32,4 +32,9 @@ long int nextPos(){
 
 void init_sequence(long int file_end){
 	file_end_index = file_end;
+}
+
+
+char* sequence_name(){
+	return "alternating_sequence";
 }

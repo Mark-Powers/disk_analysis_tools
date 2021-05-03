@@ -1,3 +1,6 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
 // Constants
 #define GB 1024 * 1024 * 1024l
 #define MB 1024 * 1024
@@ -33,10 +36,12 @@
 
 // Estimate of how many log entries we need to allocate 
 // (to avoid mallocs during runtime)
-#define LOGS_PER_SECOND_ALLOCATE 30000
+#define LOGS_PER_SECOND_ALLOCATE 300
 
 // Values computed based on other variables
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)
 #define LOG_SIZE LOGS_PER_SECOND_ALLOCATE*TOTAL_SECONDS
 
 #define LOG_ACCEL 1
+
+#endif /* CONFIG_H */

@@ -3,7 +3,10 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=zero-write-none
+type_label=rand-write-none-big_jump
+# Which executable to use
+#exe=./bin/time_standard
+exe=./bin/time_big_jump
 
 set -e
 
@@ -16,8 +19,8 @@ sudo hdparm -f -F -W 0 /dev/sdd
 sudo hdparm -f -F -W 0 /dev/sde
 sudo hdparm -f -F -W 0 /dev/sdf
 
-file=0
-for (( file=5; file<=5; file++ ))
+file=1
+for (( file=1; file<=5; file++ ))
 do
 	# Get prefix and mountpoint for device.
 	case $file in
@@ -55,13 +58,13 @@ do
 	for (( i=1; i<=$iterations; i++ ))
 	do
 		log_file=logs/$prefix\_$i.csv
-		sudo nice -n -20 ./bin/time_standard -r -f $file -l $log_file
+		sudo nice -n -20 $exe -r -f $file -l $log_file
 		echo "$log_file complete"
 	done
 
 	# Get new smart attributes
 	echo "after" >> $smart_log
-	sudo ./smart.py $device >> $smart_log
+	sudo ../log_analysis/smart.py $device >> $smart_log
 done
 
 sudo hdparm -W 1 /dev/sdb

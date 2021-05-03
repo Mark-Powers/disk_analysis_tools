@@ -1,18 +1,20 @@
-#include <stdlib.h>
-
 #include "sequence_algorithm.h"
 
 long int file_end_index;
 
+long int pos = 100000000l;
+long int jump = 407453;
 long int nextPos(){
-	return rand() & file_end_index;
+    pos += jump;
+    pos %= file_end_index;
+    return pos;
 }
 
 void init_sequence(long int file_end){
 	file_end_index = file_end;
-	srand(123);
 }
 
+
 char* sequence_name(){
-	return "random_sequence";
+	return "big_jump_sequence";
 }
