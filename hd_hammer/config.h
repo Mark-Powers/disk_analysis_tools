@@ -23,7 +23,7 @@
 #define SEEK_TYPE RANDOM_SEEK
 
 // Write or read
-#define WRITE 1
+#define WRITE 0
 // Use direct IO
 #define DIRECT 0
 // Use raw disk or file system

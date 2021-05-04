@@ -12,14 +12,19 @@
 
 #define SIZE 100
 #define PERCENTILE 0.97
-#define ABOVE_THRESHOLD_LIMIT 5
-#define SIZE_MULTIPLIER 20
+#define ABOVE_THRESHOLD_LIMIT 55
+#define SIZE_MULTIPLIER 50
 
 unsigned long long times[SIZE];
 
 size_t log_index = 0;
 
 FILE *file, *log_fp;
+
+// Start in a state not above threshold
+int state_above_threshold = 0;
+// Always show state at beginning
+int last_state = -1;
 
 int compare (const void * a, const void * b) {
    long long diff = ( *(long long*)a - *(long long*)b );
@@ -33,9 +38,10 @@ void *run(void *arguments) {
 
   srand(123);
 
+  // Open files, print out config
   file = open_fd(args->allocate, args->filename);
   log_fp = fopen(args->log_filename, "w+");
-  fprintf(stderr, "#BUF_SIZE: %d\n"
+  fprintf(log_fp, "#BUF_SIZE: %d\n"
 		  "#FILE_SIZE %ld\n"
 		  "#WARMUP %d\n"
 		  "#SECONDS %d\n"
@@ -58,7 +64,7 @@ void *run(void *arguments) {
 
   fprintf(stderr, "warming up...\n");
   // WARMUP
-  for(int i = 0; i < SIZE_MULTIPLIER*SIZE; i++){
+  for(int i = 0; i < SIZE; i++){
 	if (SEEK_TYPE == RANDOM_SEEK) {
 	      fseek(file, nextPos(), SEEK_SET);
 	}	
@@ -106,20 +112,33 @@ void *run(void *arguments) {
 	index++;
 	index %= SIZE;
 
+	// If moving out an outlier, uncount it
 	if(old_time > threshold){
-		//fprintf(stderr, "old was above!! %lld\n", old_time);
 		count_above_thres--;
 	}
+	// If moving in an outlier, count it
 	if(new_time > threshold){
-		//fprintf(stderr, "new is above!! %lld\n", new_time);
 		count_above_thres++;
 	}
 
+	// Change state if needed
 	if(count_above_thres > ABOVE_THRESHOLD_LIMIT){
-		clock_gettime(CLOCK_REALTIME, &ts);
-		fprintf(stderr, "ABOVE THRESHOLD!! %d with latency %lld at time %f\n", count_above_thres, new_time, ts.tv_sec + 1e-9*ts.tv_nsec);
+		state_above_threshold = 1;
 	} else {
-		//fprintf(stderr, "count: %d %lld\n", count_above_thres, new_time);
+		state_above_threshold = 0;
+	}
+
+
+	// Print out current count to log
+	clock_gettime(CLOCK_REALTIME, &ts);
+	fprintf(log_fp, "%f,%d,%d\n", ts.tv_sec + 1e-9*ts.tv_nsec, state_above_threshold, count_above_thres);
+	// Flush is needed since the process is ended with a SIGTERM
+	fflush(log_fp);
+
+	// print out high count to STDERR
+	if(state_above_threshold != last_state){
+		fprintf(stderr, "%f,%d\n", ts.tv_sec + 1e-9*ts.tv_nsec, state_above_threshold);
+		last_state = state_above_threshold;
 	}
   }
 
