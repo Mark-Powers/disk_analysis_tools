@@ -1,59 +1,25 @@
 #!/usr/bin/python3
 
-import matplotlib.pyplot as plt
 
-entries = {}
+entries = []
 last_pos = None
-with open("log.csv") as f:
+with open("../log_big_sg.csv") as f:
     for line in f.readlines():
+        if line.startswith("#"):
+            continue
         parts = line.split(",")
         cpuLatency = int(parts[1])
         pos = int(parts[2])
-        if last_pos is not None:
-            jump = pos - last_pos
-            if jump not in entries:
-                entries[jump] = []
-            entries[jump].append(cpuLatency)
-        last_pos = pos
-with open("log2.csv") as f:
-    for line in f.readlines():
-        parts = line.split(",")
-        cpuLatency = int(parts[1])
-        pos = int(parts[2])
-        if last_pos is not None:
-            jump = pos - last_pos
-            if jump not in entries:
-                entries[jump] = []
-            entries[jump].append(cpuLatency)
-        last_pos = pos
-x = []
-y = []
+        entries.append(cpuLatency)
 
-count_below_1e6 = 0
-count_below_1e7 = 0
-count_below_5e6 = 0
-i = 0
-total = 0
-for jump, values in entries.items():
-    i += 1
-    # Skip warm up values
-    if i < 1000:
-        continue
-    if len(values) == 2:
-        total += 1
-        diff = abs(values[1]-values[0])
-        x.append(jump)
-        y.append(diff)
-        if diff < 1e6:
-            count_below_1e6 += 1
-        if diff < 5e6:
-            count_below_5e6 += 1
-        if diff < 1e7:
-            count_below_1e7 += 1
-    #print(jump, values, (values[1]-values[0]) < 1e7, sep="\t")
-    #if i > 10000:
-        #break
-print(count_below_1e6/total, count_below_5e6/total, count_below_1e7/total)
-plt.plot(x, y, ".")
-plt.show()
+def less_than_x(arr, x):
+    count = 0
+    for i in arr:
+        if i < x:
+            count += 1
+    return count
+
+print(less_than_x(entries, 8.5e7)/len(entries))
+print(less_than_x(entries, 7.84e7)/len(entries))
+print(less_than_x(entries, 7.4e7)/len(entries))
 
