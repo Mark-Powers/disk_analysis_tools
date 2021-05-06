@@ -7,7 +7,7 @@
 #define KB 1024
 #define ZERO_SEEK 0
 #define SEQ_SEEK 1
-#define RANDOM_SEEK 2
+#define CUSTOM_SEEK 2
 
 // # Configuration vars
 // How many bytes to write each operation
@@ -20,10 +20,10 @@
 #define WARMUP_SECONDS 10
 
 // Choose seek type based on constants above
-#define SEEK_TYPE RANDOM_SEEK
+#define SEEK_TYPE CUSTOM_SEEK
 
 // Write or read
-#define WRITE 0
+#define WRITE 1
 // Use direct IO
 #define DIRECT 0
 // Use raw disk or file system
@@ -36,7 +36,7 @@
 
 // Estimate of how many log entries we need to allocate 
 // (to avoid mallocs during runtime)
-#define LOGS_PER_SECOND_ALLOCATE 300
+#define LOGS_PER_SECOND_ALLOCATE 3000
 
 // Values computed based on other variables
 #define TOTAL_SECONDS (SECONDS + WARMUP_SECONDS)

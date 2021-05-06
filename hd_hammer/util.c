@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <x86intrin.h>
 
 #include "util.h"
 #include "config.h"
@@ -28,6 +29,12 @@ int task(FILE* file) {
   } else {
     return fread(bytes, DISK_BUF_BYTES, sizeof(int), file) == 0 && is_eof(file);
   }
+}
+
+long long timedTask(FILE* file){
+	long long start = __rdtsc();
+	task(file);
+	return __rdtsc() - start;
 }
 
 void fillBytes() {

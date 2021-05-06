@@ -40,7 +40,7 @@ void *run(void *arguments) {
 		  args->filename, sequence_name());
 
   long int file_end = 0;
-  if (SEEK_TYPE == RANDOM_SEEK ) {
+  if (SEEK_TYPE == CUSTOM_SEEK ) {
     // Get the index of the last valid random position in the file
     file_end = args->file_max - DISK_BUF_BYTES;
     init_sequence(file_end);
@@ -64,7 +64,7 @@ void *run(void *arguments) {
   while (1) {
 
     //fillBytes();
-    if (SEEK_TYPE == RANDOM_SEEK) {
+    if (SEEK_TYPE == CUSTOM_SEEK) {
       long int pos = nextPos();
       random_pos[log_index] = pos;
       fseek(file, pos, SEEK_SET);
@@ -86,6 +86,7 @@ void *run(void *arguments) {
 	    times_sec[log_index] = tpe.tv_sec;
 	    log_index++;
 	    if (elapased_seconds > TOTAL_SECONDS || log_index >= LOG_SIZE) {
+		fprintf(stderr, "%llu\t%d\n", elapased_seconds, TOTAL_SECONDS);
 		break;
 	    }
 	}
