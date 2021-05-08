@@ -10,8 +10,6 @@ from scipy.stats import pearsonr, kstest
 from scipy.interpolate import CubicSpline
 from scipy.fft import fft, ifft
 import scipy.fftpack
-import bayesian_changepoint_detection.offline_changepoint_detection as offcd
-import bayesian_changepoint_detection.online_changepoint_detection as oncd
 from functools import partial
 from data import *
 
@@ -43,7 +41,6 @@ def main():
         threshhold
         plot_each
         run_kstest
-        plot_changepoint
         plot_sparsity
         align
         run_fft
@@ -259,23 +256,6 @@ def plot_sparsity(groups, thres):
                 i+=1
             plt.plot(lst)
         plt.show()
-
-def plot_changepoint(groups):
-    '''
-    Run changepoint detection and plot the result
-    '''
-    for name, ds_list in groups.items():
-        plt.figure(name + " changepoints")
-        for ds in ds_list:
-            data = ds["ds"]
-            print("computing cp for", ds["name"])
-            R, maxes = oncd.online_changepoint_detection(data, 
-                    partial(oncd.constant_hazard, 0.25e8), 
-                    oncd.StudentT(0.1, .01, 1, 0))
-            Nw=10;
-            plt.plot(R[Nw,Nw:-1])
-        plt.show()
-
 
 def plot_each(groups, on_one=False, use_time=True):
     '''

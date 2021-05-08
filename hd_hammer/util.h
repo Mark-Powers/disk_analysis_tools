@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 int task(FILE* file);
+long long timedTask(FILE* file);
 void fillBytes();
 FILE *open_fd(int allocate, char* filename);
 int is_eof(FILE* file);

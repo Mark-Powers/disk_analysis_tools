@@ -10,21 +10,15 @@
 #include "run.h"
 #include "sequence_algorithm.h"
 
-#define SIZE 100
-#define PERCENTILE 0.97
-#define ABOVE_THRESHOLD_LIMIT 55
+#define WINDOW_SIZE 100
 #define SIZE_MULTIPLIER 50
 
-unsigned long long times[SIZE];
+unsigned long long times[WINDOW_SIZE];
 
 size_t log_index = 0;
 
 FILE *file, *log_fp;
 
-// Start in a state not above threshold
-int state_above_threshold = 0;
-// Always show state at beginning
-int last_state = -1;
 
 int compare (const void * a, const void * b) {
    long long diff = ( *(long long*)a - *(long long*)b );
@@ -55,7 +49,7 @@ void *run(void *arguments) {
 		  args->filename, sequence_name());
 
   long int file_end = 0;
-  if (SEEK_TYPE == RANDOM_SEEK ) {
+  if (SEEK_TYPE == CUSTOM_SEEK ) {
     // Get the index of the last valid random position in the file
     file_end = args->file_max - DISK_BUF_BYTES;
     init_sequence(file_end);
@@ -63,83 +57,74 @@ void *run(void *arguments) {
 
 
   fprintf(stderr, "warming up...\n");
-  // WARMUP
-  for(int i = 0; i < SIZE; i++){
-	if (SEEK_TYPE == RANDOM_SEEK) {
+  // warmup reads 1 window of data
+  for(int i = 0; i < WINDOW_SIZE; i++){
+	if (SEEK_TYPE == CUSTOM_SEEK) {
 	      fseek(file, nextPos(), SEEK_SET);
 	}	
 	task(file);
   }
 
   fprintf(stderr, "getting control data...\n");
-  // GATHER CONTROL DATA
-  long long baseline[SIZE*SIZE_MULTIPLIER];
-  for(int i = 0; i < SIZE*SIZE_MULTIPLIER; i++){
-	if (SEEK_TYPE == RANDOM_SEEK) {
+  // gather control data with WINDOW_SIZE*SIZE_MULTIPLIER size data
+  long long baseline[WINDOW_SIZE*SIZE_MULTIPLIER];
+  for(int i = 0; i < WINDOW_SIZE*SIZE_MULTIPLIER; i++){
+	if (SEEK_TYPE == CUSTOM_SEEK) {
 	      fseek(file, nextPos(), SEEK_SET);
 	}	
-    	long long start = __rdtsc();
-	task(file);
-	baseline[i] = __rdtsc() - start;	
+	baseline[i] = timedTask(file);	
   }
-  qsort(baseline, SIZE*SIZE_MULTIPLIER, sizeof(long long), compare);
-  long long threshold = baseline[(int)(SIZE*SIZE_MULTIPLIER*PERCENTILE)];
-  fprintf(stderr, "threshold set to %lld\n", threshold);
+  qsort(baseline, WINDOW_SIZE*SIZE_MULTIPLIER, sizeof(long long), compare);
+  long long thresholds[5];
+  fprintf(stderr, "thresholds set to \n");
+  for(int j = 0 ; j < 5; j++){
+    thresholds[j] = baseline[(int)(WINDOW_SIZE*SIZE_MULTIPLIER*(j*0.01 + 0.95))];
+    fprintf(stderr, "\t%f\t%lld\n", (j*0.01 + 0.95), thresholds[j]);
+  }
 
   // COPY INITIAL DATA
   int index = 0;
-  int count_above_thres = 0;
-  for(int i = 0; i < SIZE; i++){
-	times[i] = baseline[i];
-	if(times[i] > threshold){
-		count_above_thres++;
-	}
+  int count_above_thresholds[5];
+  for(int j = 0 ; j < 5; j++){
+	  count_above_thresholds[j] = 0;
+	  for(int i = 0; i < WINDOW_SIZE; i++){
+		times[i] = baseline[i];
+		if(times[i] > thresholds[j]){
+		    count_above_thresholds[j]++;
+		}
+	  }
   }
 
   struct timespec ts;
 
   // GATHER NEW DATA
   for(;;){
-	if (SEEK_TYPE == RANDOM_SEEK) {
+	if (SEEK_TYPE == CUSTOM_SEEK) {
 	      fseek(file, nextPos(), SEEK_SET);
 	}	
-	long long start = __rdtsc();
-	task(file);
-	long long new_time = __rdtsc() - start;	
+	long long new_time = timedTask(file);	
 
 	long long old_time = times[index];
 	times[index] = new_time;
 	index++;
-	index %= SIZE;
+	index %= WINDOW_SIZE;
 
-	// If moving out an outlier, uncount it
-	if(old_time > threshold){
-		count_above_thres--;
-	}
-	// If moving in an outlier, count it
-	if(new_time > threshold){
-		count_above_thres++;
-	}
-
-	// Change state if needed
-	if(count_above_thres > ABOVE_THRESHOLD_LIMIT){
-		state_above_threshold = 1;
-	} else {
-		state_above_threshold = 0;
-	}
-
-
-	// Print out current count to log
 	clock_gettime(CLOCK_REALTIME, &ts);
-	fprintf(log_fp, "%f,%d,%d\n", ts.tv_sec + 1e-9*ts.tv_nsec, state_above_threshold, count_above_thres);
+	fprintf(log_fp, "%f", ts.tv_sec + 1e-9*ts.tv_nsec);
+	// If moving out an outlier, uncount it
+	for(int j = 0 ; j < 5; j++){
+		if(old_time > thresholds[j]){
+			count_above_thresholds[j]--;
+		}
+		// If moving in an outlier, count it
+		if(new_time > thresholds[j]){
+			count_above_thresholds[j]++;
+		}
+		fprintf(log_fp, ",%d", count_above_thresholds[j]);
+	}
+	fprintf(log_fp, "\n");
 	// Flush is needed since the process is ended with a SIGTERM
 	fflush(log_fp);
-
-	// print out high count to STDERR
-	if(state_above_threshold != last_state){
-		fprintf(stderr, "%f,%d\n", ts.tv_sec + 1e-9*ts.tv_nsec, state_above_threshold);
-		last_state = state_above_threshold;
-	}
   }
 
   fclose(file);

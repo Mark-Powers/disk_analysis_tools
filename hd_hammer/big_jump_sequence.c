@@ -2,8 +2,10 @@
 
 long int file_end_index;
 
-long int pos = 100000000l;
+long int pos = 1000000000l;
 long int jump = 407453;
+//long int pos = 0l;
+//long int jump = 589824;
 long int nextPos(){
     pos += jump;
     pos %= file_end_index;

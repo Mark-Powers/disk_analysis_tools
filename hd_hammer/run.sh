@@ -3,10 +3,10 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=rand-write-none-big_jump
+type_label=seq-test
 # Which executable to use
-#exe=./bin/time_standard
-exe=./bin/time_big_jump
+exe=./bin/time_standard
+#exe=./bin/time_big_jump
 
 set -e
 
