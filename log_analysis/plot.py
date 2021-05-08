@@ -12,6 +12,9 @@ x = data[0,:]
 x = [p - x[0] for p in x]
 y = data[1,:]
 #plt.ylim(0, 200)
+
+print(sum(y)/len(y))
+
 plt.title(filename)
 plt.xlabel("time (s)")
 plt.ylabel("cpu cycles")

@@ -21,9 +21,9 @@ a_z = data[3,:]
 plt.title(filename)
 plt.xlabel("time (s)")
 plt.ylabel("acceleration")
-plt.plot(x, a_x)
-plt.plot(x, a_y)
-plt.plot(x, a_z)
+plt.plot(x, a_x, '.')
+plt.plot(x, a_y, '.')
+plt.plot(x, a_z, '.')
 plt.show()
 
 N = len(a_z)
@@ -32,6 +32,7 @@ T = (x[-1]-x[0])/N
 yf = fft(a_z)
 xf = fftfreq(N, T)[:N//2]
 
+plt.title(filename)
 plt.plot(xf[1:], 2.0/N * numpy.abs(yf[1:N//2]))
 plt.grid()
 plt.show()

@@ -16,7 +16,7 @@ from functools import partial
 from data import *
 
 # Which group to use, from data.py
-groups_include = sg_barr_big_jump
+groups_include = ["sg_barr-seq-test"]
 
 def main():
     # Which directory to search for log files in
@@ -54,8 +54,7 @@ def main():
         run_pearson_correlation
     '''
     summary(data_sets)
-    rolling_avg(data_sets)
-    #plot_each(data_sets, True)
+    plot_each(data_sets, True)
     #align(data_sets, thres=20, plotPDF=True)
 
 def rolling_avg(groups):
