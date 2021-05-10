@@ -38,7 +38,7 @@ rt_vs_no_rt = [
     "sg_barr-new-none-rand-write_", # no RT here
         ]
 sg_barr_max_seek = [
-    "sg_barr-rand-write-none-max-seek_",
+    "sg_brr-rand-write-none-max-seek_",
     "sg_barr-rand-write-none_",
     "sg_barr-rand-write-none2-max-seek_",
         ]

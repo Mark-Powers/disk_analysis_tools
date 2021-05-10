@@ -3,7 +3,7 @@
 iterations=3
 
 # Label for log files for this type of test
-type_label=seq-test
+type_label=rand-write
 # Which executable to use
 exe=./bin/time_standard
 #exe=./bin/time_big_jump

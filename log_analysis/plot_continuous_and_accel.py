@@ -116,7 +116,7 @@ for event in accel_events:
     axs[0].axvspan(event[0], event[1], color='y', alpha=0.5, lw=0)
 axs[1].plot([min(*accel_time, *times_raw), max(*accel_time, *times_raw)], [threshold, threshold])
 axs[1].plot(times_raw, count_raw, color='r')
-axs[1].set_ylabel("count above 97%tile")
+axs[1].set_ylabel("count above " + str(94+percentile_index)+ "%tile")
 for event in best_events:
     axs[1].axvspan(event[0], event[1], color='y', alpha=0.5, lw=0)
 plt.show()

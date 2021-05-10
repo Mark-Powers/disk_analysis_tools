@@ -14,7 +14,7 @@ from functools import partial
 from data import *
 
 # Which group to use, from data.py
-groups_include = ["sg_barr-seq-test"]
+groups_include = sg_barr_big_jump
 
 def main():
     # Which directory to search for log files in
@@ -36,7 +36,7 @@ def main():
     # Run tests on data_sets
     '''
     sample tests:
-    plot_each
+        plot_each
         summary
         threshhold
         plot_each
@@ -52,7 +52,7 @@ def main():
     '''
     summary(data_sets)
     plot_each(data_sets, True)
-    #align(data_sets, thres=20, plotPDF=True)
+    align(data_sets, thres=20, plotPDF=True)
 
 def rolling_avg(groups):
     none_list = groups[groups_include[0]]
@@ -272,10 +272,11 @@ def plot_each(groups, on_one=False, use_time=True):
             name = ds_list[i]["name"].split("_")[-1][:-4]
             ax = axs if on_one else axs[i]
             ax.set_ylim(0, 2e8)
+            ax.set_xlabel("time (s)")
             if on_one:
-                ax.set_ylabel(name)
-            else:
                 ax.set_ylabel("CPU cycles")
+            else:
+                ax.set_ylabel(name)
             if use_time:
                 ax.plot(ds_list[i]["t"], ds_list[i]["ds"], '.')
             else:

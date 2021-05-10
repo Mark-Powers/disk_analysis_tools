@@ -80,6 +80,7 @@ ending with `1.csv`, `2.csv`, etc. I could also create a similar dataset named
 2. Modify the line `groups_with = ` to use your new group (e.g. `groups_with =
    my_group`)
 3. Modify the `main()` function to run any test functions you want.
+
 ### Other script files:
 - `compare_sequence_logs.py`: A script to compare two log files generated from
   the `alternating_sequence` seek algorithm. This compares the expected latency
@@ -139,9 +140,63 @@ log file with the heads BEFORE and AFTER to indicate which series of data is
 from which run. "Vendor specific attributes" are ones that aren't known in
 detail.
 
-# Example usage
+# How To Usage
 This section demonstrates some example usage that has been run, and how plots
-are generated.
+are generated, such as the ones showcased in the overleaf document.
 
+## Basic scatterplots over time
+These are plots where latency plotted on the veritical axis with seconds on the
+horizontal axis. 
+
+1. Compute data using `hd_hammer/run.sh`. Set `type_label` based on what sort of
+   test. You may want to run multiple times with different labels to compare two
+   different paramters. For example, run one test with no vibration, and the one
+   test with vibration, changing the label to indicate this.
+2. Edit `log_analysis/data.py` to include these groups. Look at the log files that were used from the
+   output of step 1. From this, find a phrase that groups together like tests.
+   For example, for log files `sg_barr-rand-write-none_1.csv`, 
+   `sg_barr-rand-write-none_2.csv`, `sg_barr-rand-write-35Hz-6.0mmps_1.csv` and,
+   `sg_barr-rand-write-35Hz-6.0mmps_2.csv`, we can use the two phrases
+   `sg_barr-rand-write-none_` and `sg_barr-rand-write-35Hz-6.0mmps_` as the two
+   entries inside a list. 
+3. Edit `log_analysis/analysis.py` so that `groups_include` is set to the new
+   groups from step 2. This will read in all files that match the phrase given,
+   and keep them grouped together. For example, with the above scenario, we
+   would get a map with a key `sg_barr-rand-write-none_` with 2 data series
+   (from 1 and 2).
+4. Edit `log_analysis/analysis.py` so that the main function calls `plot_each`.
+   Pass in `data_sets` as the first parameter. If you want all data series to be
+   on the same axes, use `on_one=True`.
+5. Run `analysis.py` from inside the `log_analysis` directory so that the
+   relative path reads the data correctly (based on `base_dir`).
+
+## A single scatterplot over time
+This is a plot of a single csv file. Axis labels are assuming the csv file is
+from a standard `hd_hammer` executable (not continuous).
+
+1. Generate the data from `hd_hammer`
+2. Run `./log_analysis/plot.py FILENAME` where `FILENAME` is the path to your
+   log file.
+3. Using the matplotlib interactive viewer, you can zoom in and move around on
+   the plot.
+
+## Acceleration FFT
+1. Generate acceleration data by running `./hd_hammer/bin/accel > FILENAME`
+   where FILENAME is the file to redirect acceleration values into.
+2. The plot will first show acceleration over time. Closing this will open the
+   FFT plot.
+
+## Acceleration and Count plots
+1. Run `hd_hammer/accel`. While it is running, run a continuous executable file,
+   for example: `bin/time_continuous_random -f 5 -l log.csv -r`.
+2. Once the file prints out what the thresholds are, the warmup period is done.
+   Now, introduce vibration as desired.
+3. After vibration tests are done, `ctrl-c` to kill both running processes. 
+4. Run `./plot_continuous_and_accel.py log.csv log_accel.csv THRESHOLD
+   PERCENTILE`, where `log.csv` is your log file from the continuous run,
+   `log_accel.csv` is your acceleration log file, `THRESHOLD` is the count to be
+   used as the threshold for highlighting i.e. 10, and `PERCENTILE` is the
+   percentile index to use 0-4, where 0 is 95th, 1 is 96th, through 4 being 99th
+   percentile.
 
 

@@ -15,7 +15,7 @@ y = data[1,:]
 
 print(sum(y)/len(y))
 
-plt.title(filename)
+#plt.title(filename)
 plt.xlabel("time (s)")
 plt.ylabel("cpu cycles")
 plt.plot(y, '.')
