@@ -16,6 +16,10 @@ To use the computer:
 4. Log into the computer with username: mark, password: powers. You can change
    this, or add a new user. If using the existing installation, please reclone
    this git repository.
+5. If you want to develop over SSH, you can run the computer headless, and just
+   remote transfer the log files over. Either way, since acceleration and hard
+   drive data are measured on two seperate computers, you will need to do some
+   remote copying.
 
 # Install Guide
 These steps were used to install this repository from a fresh installation of Xubuntu.
