@@ -7,6 +7,16 @@ A collection of various tools to collect hard drive data in real time
   for parameters to `hd_hammer`
 - `fio_scripts/`: Some scripts that run fio (replaced by `hd_hammer`)
 
+
+# Computer Setup
+To use the computer:
+1. Connect the computer power, and hook up a monitor, keyboard, and mouse.
+2. Connect the accelerometer to a different computer
+3. Place hard drive enclosure onto the vibration platform
+4. Log into the computer with username: mark, password: powers. You can change
+   this, or add a new user. If using the existing installation, please reclone
+   this git repository.
+
 # Install Guide
 These steps were used to install this repository from a fresh installation of Xubuntu.
 
